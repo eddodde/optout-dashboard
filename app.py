@@ -3,16 +3,20 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 # ── 기본 설정 ──────────────────────────────────────────────
 st.set_page_config(
-    page_title="등급별·채널별 수신거부 대시보드",
-    page_icon="📭",
+    page_title="VIP 도달·이탈 진단 대시보드",
+    page_icon="📉",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+# 등급 순서(최상위 → 하위) & 그룹 정의
+GRADE_ORDER = ["SP", "PT", "GD", "SV", "BK", "PP", "RD"]
+GROUPS = {"VIP": ["SP", "PT", "GD", "SV", "BK"], "일반": ["PP", "RD"]}
+GRADE2GROUP = {g: grp for grp, gs in GROUPS.items() for g in gs}
+GROUP_COLOR = {"VIP": "#4C72B0", "일반": "#B0B0B0"}
 CHANNELS = ["PUSH", "SMS", "EMAIL"]
 CH_COLOR = {"PUSH": "#4C72B0", "SMS": "#DD8452", "EMAIL": "#55A868"}
 
@@ -20,11 +24,11 @@ CH_COLOR = {"PUSH": "#4C72B0", "SMS": "#DD8452", "EMAIL": "#55A868"}
 st.markdown("""
 <style>
     .metric-card {
-        background: #f8f9fa; border-radius: 10px; padding: 16px 20px;
+        background: #f8f9fa; border-radius: 10px; padding: 14px 18px;
         border-left: 4px solid #4C72B0; margin-bottom: 10px;
     }
     .metric-label { font-size: 13px; color: #666; margin-bottom: 4px; }
-    .metric-value { font-size: 26px; font-weight: 700; color: #1a1a2e; }
+    .metric-value { font-size: 24px; font-weight: 700; color: #1a1a2e; }
     .metric-sub  { font-size: 12px; color: #888; margin-top: 2px; }
     .section-title {
         font-size: 18px; font-weight: 700; color: #1a1a2e;
@@ -32,6 +36,13 @@ st.markdown("""
         border-bottom: 2px solid #e9ecef;
     }
     .hint { font-size: 12px; color: #999; margin: -4px 0 10px 0; }
+    .insight {
+        background: #eef4fb; border-left: 4px solid #4C72B0; border-radius: 8px;
+        padding: 12px 16px; margin: 6px 0 14px 0; font-size: 14px; line-height: 1.6;
+    }
+    .insight.warn { background: #fdeeee; border-left-color: #C44E52; }
+    .insight.ok   { background: #eef7f0; border-left-color: #55A868; }
+    .insight b { color: #1a1a2e; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -39,11 +50,9 @@ st.markdown("""
 # ── 데이터 로드 / 정규화 ────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def load_data(file):
-    """업로드한 엑셀(.xls/.xlsx)을 long-format으로 정규화."""
-    # 첫 번째 시트가 데이터(시트명이 깨져 있을 수 있어 인덱스로 접근), SQL 시트는 무시
+    """업로드한 엑셀(.xls/.xlsx)을 (wide: 날짜×등급), (long: 날짜×등급×채널)으로 정규화."""
     raw = pd.read_excel(file, sheet_name=0, header=0)
     raw.columns = [str(c).strip() for c in raw.columns]
-    # 빈/Unnamed 컬럼 제거
     raw = raw.loc[:, [c for c in raw.columns if c and not c.startswith("Unnamed")]]
 
     needed = {"STD_DD", "GRADE_CD"}
@@ -51,48 +60,63 @@ def load_data(file):
         raise ValueError(f"필수 컬럼 누락: {needed - set(raw.columns)}")
 
     raw = raw.dropna(subset=["STD_DD", "GRADE_CD"])
-    raw["STD_DD"] = pd.to_datetime(raw["STD_DD"].astype(str).str.strip(), format="%Y%m%d", errors="coerce")
+    raw["STD_DD"] = pd.to_datetime(raw["STD_DD"].astype(str).str.strip(),
+                                   format="%Y%m%d", errors="coerce")
     raw = raw.dropna(subset=["STD_DD"])
     raw["GRADE_CD"] = raw["GRADE_CD"].astype(str).str.strip()
+    raw = raw[raw["GRADE_CD"] != "TOTAL"]  # 합계행 제외
 
-    num_cols = [c for c in raw.columns if c not in ("STD_DD", "NEW_GBN", "GRADE_CD")]
-    for c in num_cols:
-        raw[c] = pd.to_numeric(raw[c], errors="coerce").fillna(0)
+    for c in raw.columns:
+        if c not in ("STD_DD", "NEW_GBN", "GRADE_CD"):
+            raw[c] = pd.to_numeric(raw[c], errors="coerce").fillna(0)
 
-    # long format: 한 행 = (날짜, 등급, 채널)
-    records = []
-    for _, r in raw.iterrows():
-        act = r.get("ACT_MEM", 0)          # 전체 유효회원수
-        act_push = r.get("ACT_PUSH_MEM", 0)
+    # wide: 날짜 × 등급 (도달률·앱 미보유/삭제 중심)
+    w = pd.DataFrame({
+        "date": raw["STD_DD"],
+        "grade": raw["GRADE_CD"],
+        "act": raw.get("ACT_MEM", 0),
+        "act_push": raw.get("ACT_PUSH_MEM", 0),
+        "tot_push": raw.get("TOT_PUSH_MEM", 0),
+        "tot_sms": raw.get("TOT_SMS_MEM", 0),
+        "tot_email": raw.get("TOT_EMAIL_MEM", 0),
+    })
+    for ch in CHANNELS:
+        w[f"new_{ch.lower()}"] = raw.get(f"NEW_{ch}_MEM", 0)
+        w[f"out_{ch.lower()}"] = raw.get(f"OUT_{ch}_MEM", 0)
+    w["group"] = w["grade"].map(GRADE2GROUP).fillna("일반")
+    # 앱 미보유/삭제 = 앱푸시 수신자(ACT_PUSH) − 실제 발송가능(TOT_PUSH)
+    w["unreach_push"] = (w["act_push"] - w["tot_push"]).clip(lower=0)
+    w["reach_push"] = np.where(w["act_push"] > 0, w["tot_push"] / w["act_push"] * 100, 0)
+    w["out_all"] = w[[f"out_{c.lower()}" for c in CHANNELS]].sum(axis=1)
+    w["new_all"] = w[[f"new_{c.lower()}" for c in CHANNELS]].sum(axis=1)
+    w["net_all"] = w["new_all"] - w["out_all"]
+
+    # long: 날짜 × 등급 × 채널 (수신거부 분석)
+    recs = []
+    for _, r in w.iterrows():
         for ch in CHANNELS:
-            records.append({
-                "date": r["STD_DD"],
-                "grade": r["GRADE_CD"],
-                "channel": ch,
-                "act": act,                                  # 유효회원수(전체)
-                "act_push": act_push,
-                "tot": r.get(f"TOT_{ch}_MEM", 0),            # 수신자수
-                "new": r.get(f"NEW_{ch}_MEM", 0),            # 신규수신
-                "out": r.get(f"OUT_{ch}_MEM", 0),            # 수신거부(이탈)
+            cl = ch.lower()
+            recs.append({
+                "date": r["date"], "grade": r["grade"], "group": r["group"], "channel": ch,
+                "tot": r[f"tot_{cl}"], "new": r[f"new_{cl}"], "out": r[f"out_{cl}"],
             })
-    df = pd.DataFrame(records)
-    df["net"] = df["new"] - df["out"]                        # 순증감
-    df["out_rate"] = np.where(df["tot"] > 0, df["out"] / df["tot"] * 100, 0)   # 수신거부율(%)
-    df["reach"] = np.where(df["act"] > 0, df["tot"] / df["act"] * 100, 0)      # 도달률(%)
-    return df
+    L = pd.DataFrame(recs)
+    L["net"] = L["new"] - L["out"]
+    L["out_rate"] = np.where(L["tot"] > 0, L["out"] / L["tot"] * 100, 0)
+    return w, L
 
 
 def fnum(x):
     return f"{int(round(x)):,}"
 
 
-def metric_card(label, value, sub=""):
+def metric_card(label, value, sub="", color="#4C72B0"):
     st.markdown(
-        f'<div class="metric-card"><div class="metric-label">{label}</div>'
+        f'<div class="metric-card" style="border-left-color:{color}">'
+        f'<div class="metric-label">{label}</div>'
         f'<div class="metric-value">{value}</div>'
         f'<div class="metric-sub">{sub}</div></div>',
-        unsafe_allow_html=True,
-    )
+        unsafe_allow_html=True)
 
 
 def section(title, hint=""):
@@ -101,201 +125,279 @@ def section(title, hint=""):
         st.markdown(f'<div class="hint">{hint}</div>', unsafe_allow_html=True)
 
 
-# ── 헤더 ───────────────────────────────────────────────────
-st.title("📭 등급별·채널별 수신거부 대시보드")
-st.caption("PUSH / SMS / EMAIL 채널의 수신거부(이탈)·신규수신·순증감을 등급별로 분석합니다.")
+def insight(html, kind=""):
+    st.markdown(f'<div class="insight {kind}">{html}</div>', unsafe_allow_html=True)
 
-# ── 사이드바: 업로드 & 필터 ─────────────────────────────────
+
+def trend_word(daily_series):
+    """일별 시계열의 추세를 첫/끝 3일 평균 비교로 판정."""
+    s = daily_series.dropna()
+    if len(s) < 2:
+        return "—", 0.0
+    k = max(1, min(3, len(s) // 2))
+    first, last = s.iloc[:k].mean(), s.iloc[-k:].mean()
+    if first == 0:
+        return ("증가" if last > 0 else "유지"), 0.0
+    chg = (last - first) / first * 100
+    word = "증가" if chg > 5 else ("감소" if chg < -5 else "유지")
+    return word, chg
+
+
+# ── 헤더 ───────────────────────────────────────────────────
+st.title("📉 VIP 도달·이탈 진단 대시보드")
+st.caption("VIP DAU 역신장 가설 추적 — 채널 수신거부(이탈) + 앱 미보유/삭제로 도달 가능 모수가 "
+           "얼마나 줄어드는지 등급·그룹별로 진단합니다.")
+
+# ── 사이드바: 업로드 ───────────────────────────────────────
 with st.sidebar:
     st.header("⚙️ 설정")
-    up = st.file_uploader("발송/수신 데이터 업로드 (.xls / .xlsx)", type=["xls", "xlsx"])
-    st.caption("STD_DD, GRADE_CD, ACT/TOT/NEW/OUT_채널_MEM 컬럼을 포함한 export 파일")
+    up = st.file_uploader("데이터 업로드 (.xls / .xlsx)", type=["xls", "xlsx"])
+    st.caption("STD_DD, GRADE_CD, ACT/TOT/NEW/OUT_채널_MEM 컬럼 포함 export 파일")
 
 if up is None:
-    st.info("👈 사이드바에서 데이터 파일을 업로드하면 대시보드가 표시됩니다.")
-    with st.expander("📋 예상 컬럼 구조"):
+    st.info("👈 사이드바에서 데이터 파일을 업로드하면 진단이 시작됩니다.")
+    with st.expander("📋 지표 정의"):
         st.markdown("""
-| 컬럼 | 의미 |
-|---|---|
-| `STD_DD` | 기준일자 (YYYYMMDD) |
-| `GRADE_CD` | 등급코드 (BK/GD/PP/PT/RD/SP/SV/TOTAL) |
-| `ACT_MEM`, `ACT_PUSH_MEM` | 유효회원수 |
-| `TOT_{PUSH/SMS/EMAIL}_MEM` | 수신자수 |
-| `NEW_{PUSH/SMS/EMAIL}_MEM` | 신규수신 |
-| `OUT_{PUSH/SMS/EMAIL}_MEM` | 수신거부(이탈) |
+- **앱 미보유/삭제** = `ACT_PUSH_MEM − TOT_PUSH_MEM` (앱푸시 동의했지만 실제 발송 불가)
+- **푸시 도달률** = `TOT_PUSH_MEM / ACT_PUSH_MEM` (앱 보유·푸시 발송 가능 비율)
+- **수신거부율** = `OUT / TOT`  ·  **순증감** = `NEW − OUT`
+- **그룹** — VIP: SP·PT·GD·SV·BK / 일반: PP·RD
 """)
     st.stop()
 
 try:
-    df = load_data(up)
+    W, L = load_data(up)
 except Exception as e:
     st.error(f"데이터를 읽는 중 오류가 발생했습니다: {e}")
     st.stop()
 
-# 합계행(TOTAL)과 등급행 분리
-grades_all = sorted(df["grade"].unique().tolist())
-grade_codes = [g for g in grades_all if g != "TOTAL"]
-df_grade = df[df["grade"] != "TOTAL"].copy()       # 등급별 분석용
-has_total_row = "TOTAL" in grades_all
-
 # ── 사이드바 필터 ───────────────────────────────────────────
 with st.sidebar:
     st.divider()
-    dmin, dmax = df["date"].min().date(), df["date"].max().date()
-    date_range = st.date_input("기간", value=(dmin, dmax), min_value=dmin, max_value=dmax)
-    if isinstance(date_range, tuple) and len(date_range) == 2:
-        d0, d1 = date_range
-    else:
-        d0, d1 = dmin, dmax
+    dmin, dmax = W["date"].min().date(), W["date"].max().date()
+    dr = st.date_input("기간", value=(dmin, dmax), min_value=dmin, max_value=dmax)
+    d0, d1 = dr if isinstance(dr, tuple) and len(dr) == 2 else (dmin, dmax)
+    sel_groups = st.multiselect("그룹", list(GROUPS.keys()), default=list(GROUPS.keys()))
+    grade_pool = [g for g in GRADE_ORDER if GRADE2GROUP.get(g) in sel_groups]
+    sel_grades = st.multiselect("등급", grade_pool, default=grade_pool)
+    sel_channels = st.multiselect("채널 (수신거부 분석)", CHANNELS, default=CHANNELS)
 
-    sel_channels = st.multiselect("채널", CHANNELS, default=CHANNELS)
-    # 등급 순서: 유효회원수 큰 순
-    order = (df_grade.groupby("grade")["act"].max().sort_values(ascending=False).index.tolist())
-    sel_grades = st.multiselect("등급", order, default=order)
+wmask = (W["date"].dt.date >= d0) & (W["date"].dt.date <= d1) & (W["grade"].isin(sel_grades))
+fw = W[wmask].copy()
+lmask = ((L["date"].dt.date >= d0) & (L["date"].dt.date <= d1) &
+         (L["grade"].isin(sel_grades)) & (L["channel"].isin(sel_channels)))
+fl = L[lmask].copy()
 
-mask = (
-    (df["date"].dt.date >= d0) & (df["date"].dt.date <= d1) &
-    (df["channel"].isin(sel_channels))
-)
-fdf = df[mask].copy()
-fg = fdf[(fdf["grade"] != "TOTAL") & (fdf["grade"].isin(sel_grades))].copy()  # 등급 필터 적용
-
-if fg.empty:
-    st.warning("선택한 조건에 해당하는 데이터가 없습니다. 필터를 조정해 주세요.")
+if fw.empty:
+    st.warning("선택한 조건에 데이터가 없습니다. 필터를 조정해 주세요.")
     st.stop()
 
-n_days = fg["date"].nunique()
-last_day = fg["date"].max()
+n_days = fw["date"].nunique()
+last_day = fw["date"].max()
+fw_last = fw[fw["date"] == last_day]          # 최근일 스냅샷(도달률·모수)
+grade_order_sel = [g for g in GRADE_ORDER if g in fw["grade"].unique()]
 
-# ── KPI ────────────────────────────────────────────────────
-section("핵심 지표", f"기간: {d0} ~ {d1} ({n_days}일) · 채널: {', '.join(sel_channels)} · 등급별 합산")
-tot_out = fg["out"].sum()
-tot_new = fg["new"].sum()
-tot_net = tot_new - tot_out
-recv_last = fg[fg["date"] == last_day]["tot"].sum()
-out_last = fg[fg["date"] == last_day]["out"].sum()
-out_rate_period = (tot_out / fg["tot"].sum() * 100) if fg["tot"].sum() > 0 else 0
-avg_daily_out = tot_out / n_days if n_days else 0
+
+def group_snapshot(grp, snap, period_long, period_wide):
+    """그룹 단위 집계 (스냅샷=도달률, 기간합=거부/순증감)."""
+    s = snap[snap["group"] == grp]
+    pl = period_long[period_long["group"] == grp]
+    pw = period_wide[period_wide["group"] == grp]
+    act_push = s["act_push"].sum()
+    tot_push = s["tot_push"].sum()
+    return {
+        "act": s["act"].sum(),
+        "act_push": act_push,
+        "tot_push": tot_push,
+        "unreach": s["unreach_push"].sum(),
+        "reach": (tot_push / act_push * 100) if act_push else 0,
+        "out": pl["out"].sum(),
+        "new": pl["new"].sum(),
+        "net": pl["new"].sum() - pl["out"].sum(),
+        "out_trend": trend_word(pw.groupby("date")["out_all"].sum())[0],
+    }
+
+
+# ════════════════════════════════════════════════════════════
+# 0. 핵심 진단
+# ════════════════════════════════════════════════════════════
+section("핵심 진단", f"기간 {d0} ~ {d1} ({n_days}일) · 도달률은 최근일({last_day.date()}) 스냅샷 기준")
+
+if "VIP" in sel_groups:
+    vip = group_snapshot("VIP", fw_last, fl, fw)
+    share = (vip["unreach"] / vip["act_push"] * 100) if vip["act_push"] else 0
+    kind = "warn" if vip["reach"] < 50 else ""
+    insight(
+        f"VIP 앱푸시 도달률은 <b>{vip['reach']:.1f}%</b> — 앱푸시 동의 {fnum(vip['act_push'])}명 중 "
+        f"<b>{fnum(vip['unreach'])}명({share:.0f}%)</b>이 <b>앱 미보유/삭제</b>로 실제 발송 불가입니다. "
+        f"기간 중 VIP 수신거부는 총 <b>{fnum(vip['out'])}건</b>(추세 {vip['out_trend']}), "
+        f"순증감 <b>{'+' if vip['net']>=0 else '−'}{fnum(abs(vip['net']))}</b>. "
+        f"도달 가능 모수가 동의 모수의 1/3 수준이라, 발송량을 늘려도 DAU 기여 한계가 큽니다.",
+        kind)
 
 c1, c2, c3, c4, c5 = st.columns(5)
-with c1: metric_card("총 수신거부", fnum(tot_out), f"일평균 {fnum(avg_daily_out)}건")
-with c2: metric_card("총 신규수신", fnum(tot_new), f"기간 {n_days}일 합계")
-with c3:
-    sign = "▲" if tot_net >= 0 else "▼"
-    metric_card("순증감 (신규−거부)", f"{sign} {fnum(abs(tot_net))}",
-                "구독자 순증가" if tot_net >= 0 else "구독자 순감소")
-with c4: metric_card("기간 수신거부율", f"{out_rate_period:.3f}%", "수신거부 / 수신자수")
-with c5: metric_card(f"최근일({last_day.date()}) 거부", fnum(out_last), f"수신자 {fnum(recv_last)}")
+push_reach_all = (fw_last["tot_push"].sum() / fw_last["act_push"].sum() * 100) if fw_last["act_push"].sum() else 0
+with c1: metric_card("선택분 앱푸시 도달률", f"{push_reach_all:.1f}%", "TOT_PUSH / ACT_PUSH")
+with c2: metric_card("앱 미보유/삭제", fnum(fw_last["unreach_push"].sum()), "푸시 발송 불가 모수")
+with c3: metric_card("앱푸시 발송 가능", fnum(fw_last["tot_push"].sum()), f"동의 {fnum(fw_last['act_push'].sum())}")
+with c4: metric_card("기간 수신거부(전채널)", fnum(fl["out"].sum()), f"일평균 {fnum(fl['out'].sum()/n_days)}")
+net_all = fl["new"].sum() - fl["out"].sum()
+with c5: metric_card("순증감(신규−거부)", f"{'▲' if net_all>=0 else '▼'} {fnum(abs(net_all))}",
+                     "구독자 순증가" if net_all >= 0 else "구독자 순감소")
 
-# ── 채널별 요약 ────────────────────────────────────────────
-section("채널별 요약", "선택 기간 합계 기준")
-ch_sum = (fg.groupby("channel")
-            .agg(out=("out", "sum"), new=("new", "sum"), tot=("tot", "sum"))
-            .reindex([c for c in CHANNELS if c in sel_channels]))
-ch_sum["net"] = ch_sum["new"] - ch_sum["out"]
-ch_sum["out_rate"] = np.where(ch_sum["tot"] > 0, ch_sum["out"] / ch_sum["tot"] * 100, 0)
-
-cols = st.columns(len(ch_sum))
-for col, (ch, row) in zip(cols, ch_sum.iterrows()):
+# ════════════════════════════════════════════════════════════
+# 1. 그룹 비교 (VIP vs 일반)
+# ════════════════════════════════════════════════════════════
+section("그룹 비교 — VIP vs 일반", "도달률=최근일 스냅샷 · 거부/순증감=기간 합계")
+gcols = st.columns(len(sel_groups))
+for col, grp in zip(gcols, sel_groups):
+    gs = group_snapshot(grp, fw_last, fl, fw)
+    share = (gs["unreach"] / gs["act_push"] * 100) if gs["act_push"] else 0
     with col:
-        net = row["net"]; sign = "▲" if net >= 0 else "▼"
         st.markdown(
-            f'<div class="metric-card" style="border-left-color:{CH_COLOR[ch]}">'
-            f'<div class="metric-value" style="font-size:18px">{ch}</div>'
-            f'<div class="metric-sub">수신거부 <b>{fnum(row["out"])}</b> · 신규 <b>{fnum(row["new"])}</b></div>'
-            f'<div class="metric-sub">순증감 <b>{sign} {fnum(abs(net))}</b> · 거부율 <b>{row["out_rate"]:.3f}%</b></div>'
-            f'<div class="metric-sub">수신자 {fnum(row["tot"])}</div>'
+            f'<div class="metric-card" style="border-left-color:{GROUP_COLOR[grp]}">'
+            f'<div class="metric-value" style="font-size:19px">{grp} '
+            f'<span style="font-size:13px;color:#888">({", ".join(GROUPS[grp])})</span></div>'
+            f'<div class="metric-sub">앱푸시 도달률 <b>{gs["reach"]:.1f}%</b> · '
+            f'미보유/삭제 <b>{fnum(gs["unreach"])}</b> ({share:.0f}%)</div>'
+            f'<div class="metric-sub">유효회원 {fnum(gs["act"])} · 발송가능 {fnum(gs["tot_push"])}</div>'
+            f'<div class="metric-sub">기간 수신거부 <b>{fnum(gs["out"])}</b> (추세 {gs["out_trend"]}) · '
+            f'순증감 <b>{"+" if gs["net"]>=0 else "−"}{fnum(abs(gs["net"]))}</b></div>'
             f'</div>', unsafe_allow_html=True)
 
-# ── 일별 추이 ──────────────────────────────────────────────
-section("일별 수신거부 추이", "채널별 일자 수신거부(이탈) 건수")
-daily_ch = (fg.groupby(["date", "channel"])["out"].sum().reset_index())
-fig = px.line(daily_ch, x="date", y="out", color="channel",
-              color_discrete_map=CH_COLOR, markers=True,
-              labels={"out": "수신거부", "date": "일자", "channel": "채널"})
-fig.update_layout(height=360, legend_title_text="", margin=dict(t=20, b=10), hovermode="x unified")
+# 그룹별 도달률 일별 추이
+grp_daily = (fw.groupby(["date", "group"]).agg(tp=("tot_push", "sum"), ap=("act_push", "sum")).reset_index())
+grp_daily["reach"] = np.where(grp_daily["ap"] > 0, grp_daily["tp"] / grp_daily["ap"] * 100, 0)
+figr = px.line(grp_daily, x="date", y="reach", color="group", markers=True,
+               color_discrete_map=GROUP_COLOR, labels={"reach": "앱푸시 도달률(%)", "date": "일자", "group": "그룹"})
+figr.update_layout(height=320, margin=dict(t=20, b=10), hovermode="x unified", legend_title_text="")
+st.plotly_chart(figr, use_container_width=True)
+
+# ════════════════════════════════════════════════════════════
+# 2. 앱푸시 도달률 & 앱 미보유/삭제 (DAU 핵심)
+# ════════════════════════════════════════════════════════════
+section("앱푸시 도달 진단 — 등급별", "최근일 스냅샷 · 막대=발송가능 vs 미보유/삭제, 라인=도달률")
+gp = (fw_last.groupby("grade").agg(act_push=("act_push", "sum"), tot_push=("tot_push", "sum"),
+                                   unreach=("unreach_push", "sum")).reindex(grade_order_sel))
+gp["reach"] = np.where(gp["act_push"] > 0, gp["tot_push"] / gp["act_push"] * 100, 0)
+fig = go.Figure()
+fig.add_bar(x=gp.index, y=gp["tot_push"], name="발송가능(앱보유)", marker_color="#55A868")
+fig.add_bar(x=gp.index, y=gp["unreach"], name="앱 미보유/삭제", marker_color="#C44E52")
+fig.add_scatter(x=gp.index, y=gp["reach"], name="도달률(%)", yaxis="y2",
+                mode="lines+markers+text", text=[f"{v:.0f}%" for v in gp["reach"]],
+                textposition="top center", line=dict(color="#1a1a2e", width=2))
+fig.update_layout(barmode="stack", height=400, margin=dict(t=20, b=10),
+                  yaxis=dict(title="앱푸시 동의 모수"), legend_title_text="",
+                  yaxis2=dict(title="도달률(%)", overlaying="y", side="right", range=[0, 100], showgrid=False),
+                  xaxis=dict(categoryorder="array", categoryarray=grade_order_sel))
 st.plotly_chart(fig, use_container_width=True)
 
-# 신규 vs 거부 (순증감 막대)
-section("신규수신 vs 수신거부 (순증감)", "막대=순증감, 양수면 구독자 증가 · 채널 합산")
-daily_net = (fg.groupby("date").agg(new=("new", "sum"), out=("out", "sum")).reset_index())
-daily_net["net"] = daily_net["new"] - daily_net["out"]
-fig2 = go.Figure()
-fig2.add_bar(x=daily_net["date"], y=daily_net["net"],
-             marker_color=np.where(daily_net["net"] >= 0, "#55A868", "#C44E52"), name="순증감")
-fig2.add_scatter(x=daily_net["date"], y=daily_net["new"], mode="lines+markers",
-                 line=dict(color="#4C72B0", dash="dot"), name="신규수신")
-fig2.add_scatter(x=daily_net["date"], y=daily_net["out"], mode="lines+markers",
-                 line=dict(color="#DD8452", dash="dot"), name="수신거부")
-fig2.update_layout(height=360, margin=dict(t=20, b=10), hovermode="x unified", legend_title_text="")
-st.plotly_chart(fig2, use_container_width=True)
+worst = gp["reach"].idxmin()
+insight(
+    f"도달률이 가장 낮은 등급은 <b>{worst}</b> (<b>{gp.loc[worst,'reach']:.1f}%</b>, 미보유/삭제 "
+    f"{fnum(gp.loc[worst,'unreach'])}명). 등급 라벨 순서는 상위(SP)→하위(RD)이며, 막대의 빨강 영역이 클수록 "
+    f"앱푸시로 닿지 못하는 모수가 큽니다 — DAU 회복을 위해 우선 공략할 구간입니다.")
 
-# ── 등급 × 채널 히트맵 ──────────────────────────────────────
-section("등급 × 채널 매트릭스", "선택 기간 합계 — 지표를 바꿔서 비교하세요")
-metric_choice = st.radio("지표 선택", ["수신거부 건수", "수신거부율(%)", "순증감"],
+# ════════════════════════════════════════════════════════════
+# 3. 수신거부 분석
+# ════════════════════════════════════════════════════════════
+section("수신거부(이탈) 분석", f"채널: {', '.join(sel_channels)} · 등급 라벨 순서 SP→RD")
+cc1, cc2 = st.columns([1.3, 1])
+with cc1:
+    daily_ch = fl.groupby(["date", "channel"])["out"].sum().reset_index()
+    figc = px.line(daily_ch, x="date", y="out", color="channel", markers=True,
+                   color_discrete_map=CH_COLOR, labels={"out": "수신거부", "date": "일자", "channel": "채널"})
+    figc.update_layout(height=330, margin=dict(t=20, b=10), hovermode="x unified",
+                       legend_title_text="", title="일별 채널별 수신거부 추이")
+    st.plotly_chart(figc, use_container_width=True)
+with cc2:
+    grade_out = fl.groupby("grade").agg(out=("out", "sum"), tot=("tot", "max")).reindex(grade_order_sel)
+    grade_out["rate"] = np.where(grade_out["tot"] > 0, grade_out["out"] / grade_out["tot"] * 100, 0)
+    figo = px.bar(grade_out.reset_index(), x="grade", y="rate", color="rate", color_continuous_scale="OrRd",
+                  labels={"rate": "수신거부율(%)", "grade": "등급"}, title="등급별 수신거부율")
+    figo.update_layout(height=330, margin=dict(t=20, b=10), coloraxis_showscale=False,
+                       xaxis=dict(categoryorder="array", categoryarray=grade_order_sel))
+    st.plotly_chart(figo, use_container_width=True)
+
+# 등급 × 채널 히트맵
+metric_choice = st.radio("히트맵 지표", ["수신거부 건수", "수신거부율(%)", "순증감"],
                          horizontal=True, label_visibility="collapsed")
-pivot_out = fg.pivot_table(index="grade", columns="channel", values="out", aggfunc="sum", fill_value=0)
-pivot_tot = fg.pivot_table(index="grade", columns="channel", values="tot", aggfunc="sum", fill_value=0)
-pivot_new = fg.pivot_table(index="grade", columns="channel", values="new", aggfunc="sum", fill_value=0)
-grade_order = [g for g in order if g in pivot_out.index]
+po = fl.pivot_table(index="grade", columns="channel", values="out", aggfunc="sum", fill_value=0)
+pt = fl.pivot_table(index="grade", columns="channel", values="tot", aggfunc="max", fill_value=0)
+pn = fl.pivot_table(index="grade", columns="channel", values="new", aggfunc="sum", fill_value=0)
 ch_order = [c for c in CHANNELS if c in sel_channels]
-pivot_out = pivot_out.reindex(index=grade_order, columns=ch_order)
-pivot_tot = pivot_tot.reindex(index=grade_order, columns=ch_order)
-pivot_new = pivot_new.reindex(index=grade_order, columns=ch_order)
-
+po, pt, pn = (p.reindex(index=grade_order_sel, columns=ch_order) for p in (po, pt, pn))
 if metric_choice == "수신거부 건수":
-    z = pivot_out; fmt = ":,.0f"; cs = "Reds"
+    z, fmt, cs = po, ",.0f", "Reds"
 elif metric_choice == "수신거부율(%)":
-    z = (pivot_out / pivot_tot.replace(0, np.nan) * 100).fillna(0); fmt = ":.3f"; cs = "OrRd"
+    z, fmt, cs = (po / pt.replace(0, np.nan) * 100).fillna(0), ".3f", "OrRd"
 else:
-    z = (pivot_new - pivot_out); fmt = ":,.0f"; cs = "RdYlGn"
-
-fig3 = px.imshow(z, text_auto=fmt.lstrip(":"), aspect="auto", color_continuous_scale=cs,
+    z, fmt, cs = (pn - po), ",.0f", "RdYlGn"
+figh = px.imshow(z, text_auto=fmt, aspect="auto", color_continuous_scale=cs,
                  labels=dict(x="채널", y="등급", color=metric_choice))
-fig3.update_layout(height=max(300, 40 * len(grade_order) + 80), margin=dict(t=20, b=10))
-st.plotly_chart(fig3, use_container_width=True)
+figh.update_layout(height=max(300, 42 * len(grade_order_sel) + 80), margin=dict(t=20, b=10))
+st.plotly_chart(figh, use_container_width=True)
 
-# ── 등급별 분석 ────────────────────────────────────────────
-section("등급별 분석", "선택 기간 합계 — 수신거부·신규·순증감")
-g_sum = (fg.groupby("grade").agg(out=("out", "sum"), new=("new", "sum"),
-                                 tot=("tot", "sum"), act=("act", "max")).reset_index())
-g_sum["net"] = g_sum["new"] - g_sum["out"]
-g_sum["out_rate"] = np.where(g_sum["tot"] > 0, g_sum["out"] / g_sum["tot"] * 100, 0)
-g_sum = g_sum.set_index("grade").reindex(grade_order).reset_index()
+# ════════════════════════════════════════════════════════════
+# 4. 그룹 내 등급별 인사이트
+# ════════════════════════════════════════════════════════════
+section("그룹 내 등급별 인사이트", "각 그룹 안에서 등급 간 도달·이탈 비교")
+for grp in sel_groups:
+    members = [g for g in GROUPS[grp] if g in grade_order_sel]
+    if not members:
+        continue
+    st.markdown(f"**{grp}** &nbsp; <span style='color:#888;font-size:13px'>{', '.join(members)}</span>",
+                unsafe_allow_html=True)
+    snap = fw_last[fw_last["grade"].isin(members)].groupby("grade").agg(
+        act_push=("act_push", "sum"), tot_push=("tot_push", "sum"), unreach=("unreach_push", "sum")
+    ).reindex(members)
+    snap["reach"] = np.where(snap["act_push"] > 0, snap["tot_push"] / snap["act_push"] * 100, 0)
+    outp = fl[fl["grade"].isin(members)].groupby("grade").agg(
+        out=("out", "sum"), new=("new", "sum"), tot=("tot", "max")).reindex(members)
+    outp["rate"] = np.where(outp["tot"] > 0, outp["out"] / outp["tot"] * 100, 0)
+    outp["net"] = outp["new"] - outp["out"]
 
-colA, colB = st.columns(2)
-with colA:
-    figg = go.Figure()
-    figg.add_bar(x=g_sum["grade"], y=g_sum["new"], name="신규수신", marker_color="#4C72B0")
-    figg.add_bar(x=g_sum["grade"], y=g_sum["out"], name="수신거부", marker_color="#C44E52")
-    figg.update_layout(barmode="group", height=340, title="등급별 신규 vs 거부",
-                       margin=dict(t=40, b=10), legend_title_text="")
-    st.plotly_chart(figg, use_container_width=True)
-with colB:
-    figr = px.bar(g_sum, x="grade", y="out_rate", color="out_rate", color_continuous_scale="OrRd",
-                  labels={"out_rate": "수신거부율(%)", "grade": "등급"}, title="등급별 수신거부율")
-    figr.update_layout(height=340, margin=dict(t=40, b=10), coloraxis_showscale=False)
-    st.plotly_chart(figr, use_container_width=True)
+    cols = st.columns(len(members))
+    for col, g in zip(cols, members):
+        with col:
+            metric_card(g, f"{snap.loc[g,'reach']:.1f}%",
+                        f"미보유/삭제 {fnum(snap.loc[g,'unreach'])}<br>"
+                        f"거부 {fnum(outp.loc[g,'out'])} · 순증감 {'+' if outp.loc[g,'net']>=0 else '−'}{fnum(abs(outp.loc[g,'net']))}",
+                        color=GROUP_COLOR[grp])
 
-# ── 상세 테이블 ────────────────────────────────────────────
-section("상세 데이터", "등급 × 채널 집계 (선택 기간)")
-detail = (fg.groupby(["grade", "channel"])
-            .agg(유효회원수=("act", "max"), 수신자수=("tot", "max"),
-                 신규수신=("new", "sum"), 수신거부=("out", "sum")).reset_index())
-detail["순증감"] = detail["신규수신"] - detail["수신거부"]
-detail["수신거부율(%)"] = np.where(detail["수신자수"] > 0,
-                                  detail["수신거부"] / detail["수신자수"] * 100, 0).round(3)
-detail = detail.rename(columns={"grade": "등급", "channel": "채널"})
-st.dataframe(detail, use_container_width=True, hide_index=True,
-             column_config={
-                 "유효회원수": st.column_config.NumberColumn(format="localized"),
-                 "수신자수": st.column_config.NumberColumn(format="localized"),
-                 "신규수신": st.column_config.NumberColumn(format="localized"),
-                 "수신거부": st.column_config.NumberColumn(format="localized"),
-                 "순증감": st.column_config.NumberColumn(format="localized"),
-             })
+    lo_reach = snap["reach"].idxmin()
+    hi_out = outp["rate"].idxmax()
+    neg_net = outp[outp["net"] < 0].index.tolist()
+    msg = (f"{grp} 내 도달률 최저는 <b>{lo_reach}</b>({snap.loc[lo_reach,'reach']:.1f}%), "
+           f"수신거부율 최고는 <b>{hi_out}</b>({outp.loc[hi_out,'rate']:.3f}%).")
+    if neg_net:
+        msg += f" 기간 중 <b>구독자 순감소</b> 등급: {', '.join(neg_net)} — 신규수신보다 이탈이 많습니다."
+    else:
+        msg += " 모든 등급이 기간 중 구독자 순증가 상태입니다."
+    insight(msg, "warn" if (snap["reach"].min() < 40 or neg_net) else "")
 
-csv = detail.to_csv(index=False).encode("utf-8-sig")
-st.download_button("⬇️ 집계 CSV 다운로드", csv, "optout_summary.csv", "text/csv")
+# ════════════════════════════════════════════════════════════
+# 5. 상세 테이블
+# ════════════════════════════════════════════════════════════
+section("상세 데이터", "등급별 종합 (도달=최근일, 거부/순증감=기간 합계)")
+det = fw_last.groupby("grade").agg(act=("act", "sum"), act_push=("act_push", "sum"),
+                                   tot_push=("tot_push", "sum"), unreach=("unreach_push", "sum")).reindex(grade_order_sel)
+det["reach"] = np.where(det["act_push"] > 0, det["tot_push"] / det["act_push"] * 100, 0).round(1)
+out_g = fl.groupby("grade").agg(out=("out", "sum"), new=("new", "sum")).reindex(grade_order_sel)
+det = det.join(out_g)
+det["net"] = det["new"] - det["out"]
+det.insert(0, "group", [GRADE2GROUP.get(g, "") for g in det.index])
+det = det.reset_index().rename(columns={
+    "grade": "등급", "group": "그룹", "act": "유효회원수", "act_push": "앱푸시동의",
+    "tot_push": "발송가능", "unreach": "앱미보유/삭제", "reach": "도달률(%)",
+    "out": "수신거부", "new": "신규수신", "net": "순증감"})
+det = det[["그룹", "등급", "유효회원수", "앱푸시동의", "발송가능", "앱미보유/삭제",
+           "도달률(%)", "신규수신", "수신거부", "순증감"]]
+numfmt = {c: st.column_config.NumberColumn(format="localized")
+          for c in ["유효회원수", "앱푸시동의", "발송가능", "앱미보유/삭제", "신규수신", "수신거부", "순증감"]}
+st.dataframe(det, use_container_width=True, hide_index=True, column_config=numfmt)
+st.download_button("⬇️ 집계 CSV 다운로드", det.to_csv(index=False).encode("utf-8-sig"),
+                   "vip_reach_summary.csv", "text/csv")
 
-st.caption("ⓘ 수신거부율 = 수신거부(OUT) / 수신자수(TOT) · 순증감 = 신규수신(NEW) − 수신거부(OUT) · 도달률 = 수신자수 / 유효회원수")
+st.caption("ⓘ 앱 미보유/삭제 = ACT_PUSH_MEM − TOT_PUSH_MEM · 도달률 = TOT_PUSH/ACT_PUSH · "
+           "수신거부율 = OUT/TOT · 순증감 = NEW − OUT · VIP=SP·PT·GD·SV·BK / 일반=PP·RD")
