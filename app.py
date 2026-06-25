@@ -110,6 +110,14 @@ def fnum(x):
     return f"{int(round(x)):,}"
 
 
+def fsigned(x):
+    """내부 표기 규칙: 음수 = 빨강 △숫자, 양수 = 일반 숫자."""
+    v = int(round(x))
+    if v < 0:
+        return f'<span style="color:#C44E52">△{abs(v):,}</span>'
+    return f"{v:,}"
+
+
 def metric_card(label, value, sub="", color="#4C72B0"):
     st.markdown(
         f'<div class="metric-card" style="border-left-color:{color}">'
@@ -231,7 +239,7 @@ if "VIP" in sel_groups:
         f"VIP 앱푸시 도달률은 <b>{vip['reach']:.1f}%</b> — 앱푸시 동의 {fnum(vip['act_push'])}명 중 "
         f"<b>{fnum(vip['unreach'])}명({share:.0f}%)</b>이 <b>앱 미보유/삭제</b>로 실제 발송 불가입니다. "
         f"기간 중 VIP 수신거부는 총 <b>{fnum(vip['out'])}건</b>(추세 {vip['out_trend']}), "
-        f"순증감 <b>{'+' if vip['net']>=0 else '−'}{fnum(abs(vip['net']))}</b>. "
+        f"순증감 <b>{fsigned(vip['net'])}</b>. "
         f"도달 가능 모수가 동의 모수의 1/3 수준이라, 발송량을 늘려도 DAU 기여 한계가 큽니다.",
         kind)
 
@@ -242,7 +250,7 @@ with c2: metric_card("앱 미보유/삭제", fnum(fw_last["unreach_push"].sum())
 with c3: metric_card("앱푸시 발송 가능", fnum(fw_last["tot_push"].sum()), f"동의 {fnum(fw_last['act_push'].sum())}")
 with c4: metric_card("기간 수신거부(전채널)", fnum(fl["out"].sum()), f"일평균 {fnum(fl['out'].sum()/n_days)}")
 net_all = fl["new"].sum() - fl["out"].sum()
-with c5: metric_card("순증감(신규−거부)", f"{'▲' if net_all>=0 else '▼'} {fnum(abs(net_all))}",
+with c5: metric_card("순증감(신규−거부)", fsigned(net_all),
                      "구독자 순증가" if net_all >= 0 else "구독자 순감소")
 
 # ════════════════════════════════════════════════════════════
@@ -262,7 +270,7 @@ for col, grp in zip(gcols, sel_groups):
             f'미보유/삭제 <b>{fnum(gs["unreach"])}</b> ({share:.0f}%)</div>'
             f'<div class="metric-sub">유효회원 {fnum(gs["act"])} · 발송가능 {fnum(gs["tot_push"])}</div>'
             f'<div class="metric-sub">기간 수신거부 <b>{fnum(gs["out"])}</b> (추세 {gs["out_trend"]}) · '
-            f'순증감 <b>{"+" if gs["net"]>=0 else "−"}{fnum(abs(gs["net"]))}</b></div>'
+            f'순증감 <b>{fsigned(gs["net"])}</b></div>'
             f'</div>', unsafe_allow_html=True)
 
 # 그룹별 도달률 일별 추이
@@ -362,7 +370,7 @@ for grp in sel_groups:
         with col:
             metric_card(g, f"{snap.loc[g,'reach']:.1f}%",
                         f"미보유/삭제 {fnum(snap.loc[g,'unreach'])}<br>"
-                        f"거부 {fnum(outp.loc[g,'out'])} · 순증감 {'+' if outp.loc[g,'net']>=0 else '−'}{fnum(abs(outp.loc[g,'net']))}",
+                        f"거부 {fnum(outp.loc[g,'out'])} · 순증감 {fsigned(outp.loc[g,'net'])}",
                         color=GROUP_COLOR[grp])
 
     lo_reach = snap["reach"].idxmin()
