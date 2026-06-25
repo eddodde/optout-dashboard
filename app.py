@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import streamlit.components.v1 as components
 
 # ── 기본 설정 ──────────────────────────────────────────────
 st.set_page_config(
@@ -34,8 +35,16 @@ st.markdown("""
         font-size: 18px; font-weight: 700; color: #1a1a2e;
         margin: 26px 0 12px 0; padding-bottom: 6px;
         border-bottom: 2px solid #e9ecef;
+        scroll-margin-top: 70px;
     }
     .hint { font-size: 12px; color: #999; margin: -4px 0 10px 0; }
+    /* 사이드바 분석 메뉴 */
+    a.navlink {
+        display: block; padding: 8px 12px; margin: 4px 0; border-radius: 8px;
+        background: #f2f5fa; color: #2E68B0; text-decoration: none;
+        font-size: 14px; font-weight: 600; border: 1px solid #e3e9f2;
+    }
+    a.navlink:hover { background: #e3ecf8; color: #163E78; }
     .insight {
         background: #eef4fb; border-left: 4px solid #4C72B0; border-radius: 8px;
         padding: 12px 16px; margin: 6px 0 14px 0; font-size: 14px; line-height: 1.6;
@@ -127,10 +136,22 @@ def metric_card(label, value, sub="", color="#4C72B0"):
         unsafe_allow_html=True)
 
 
-def section(title, hint=""):
-    st.markdown(f'<div class="section-title">{title}</div>', unsafe_allow_html=True)
+def section(title, hint="", anchor=None):
+    aid = f' id="{anchor}"' if anchor else ""
+    st.markdown(f'<div class="section-title"{aid}>{title}</div>', unsafe_allow_html=True)
     if hint:
         st.markdown(f'<div class="hint">{hint}</div>', unsafe_allow_html=True)
+
+
+# 사이드바 분석 메뉴 항목 (anchor, 라벨)
+MENU = [
+    ("sec-core", "🔑 핵심 진단"),
+    ("sec-group", "👥 그룹 비교 (VIP vs 일반)"),
+    ("sec-reach", "📲 앱푸시 도달 진단"),
+    ("sec-optout", "🚫 수신거부 분석"),
+    ("sec-within", "🏅 그룹 내 등급별 인사이트"),
+    ("sec-table", "📋 상세 데이터"),
+]
 
 
 def insight(html, kind=""):
@@ -182,6 +203,11 @@ except Exception as e:
 # ── 사이드바 필터 ───────────────────────────────────────────
 with st.sidebar:
     st.divider()
+    st.markdown("**📂 분석 메뉴**")
+    st.markdown("".join(f'<a href="#{a}" class="navlink">{lbl}</a>' for a, lbl in MENU),
+                unsafe_allow_html=True)
+    st.divider()
+    st.caption("🔎 필터")
     dmin, dmax = W["date"].min().date(), W["date"].max().date()
     dr = st.date_input("기간", value=(dmin, dmax), min_value=dmin, max_value=dmax)
     d0, d1 = dr if isinstance(dr, tuple) and len(dr) == 2 else (dmin, dmax)
@@ -229,7 +255,8 @@ def group_snapshot(grp, snap, period_long, period_wide):
 # ════════════════════════════════════════════════════════════
 # 0. 핵심 진단
 # ════════════════════════════════════════════════════════════
-section("핵심 진단", f"기간 {d0} ~ {d1} ({n_days}일) · 도달률은 최근일({last_day.date()}) 스냅샷 기준")
+section("핵심 진단", f"기간 {d0} ~ {d1} ({n_days}일) · 도달률은 최근일({last_day.date()}) 스냅샷 기준",
+        anchor="sec-core")
 
 if "VIP" in sel_groups:
     vip = group_snapshot("VIP", fw_last, fl, fw)
@@ -256,7 +283,7 @@ with c5: metric_card("순증감(신규−거부)", fsigned(net_all),
 # ════════════════════════════════════════════════════════════
 # 1. 그룹 비교 (VIP vs 일반)
 # ════════════════════════════════════════════════════════════
-section("그룹 비교 — VIP vs 일반", "도달률=최근일 스냅샷 · 거부/순증감=기간 합계")
+section("그룹 비교 — VIP vs 일반", "도달률=최근일 스냅샷 · 거부/순증감=기간 합계", anchor="sec-group")
 gcols = st.columns(len(sel_groups))
 for col, grp in zip(gcols, sel_groups):
     gs = group_snapshot(grp, fw_last, fl, fw)
@@ -284,7 +311,8 @@ st.plotly_chart(figr, use_container_width=True)
 # ════════════════════════════════════════════════════════════
 # 2. 앱푸시 도달률 & 앱 미보유/삭제 (DAU 핵심)
 # ════════════════════════════════════════════════════════════
-section("앱푸시 도달 진단 — 등급별", "최근일 스냅샷 · 막대=발송가능 vs 미보유/삭제, 라인=도달률")
+section("앱푸시 도달 진단 — 등급별", "최근일 스냅샷 · 막대=발송가능 vs 미보유/삭제, 라인=도달률",
+        anchor="sec-reach")
 gp = (fw_last.groupby("grade").agg(act_push=("act_push", "sum"), tot_push=("tot_push", "sum"),
                                    unreach=("unreach_push", "sum")).reindex(grade_order_sel))
 gp["reach"] = np.where(gp["act_push"] > 0, gp["tot_push"] / gp["act_push"] * 100, 0)
@@ -309,7 +337,8 @@ insight(
 # ════════════════════════════════════════════════════════════
 # 3. 수신거부 분석
 # ════════════════════════════════════════════════════════════
-section("수신거부(이탈) 분석", f"채널: {', '.join(sel_channels)} · 등급 라벨 순서 SP→RD")
+section("수신거부(이탈) 분석", f"채널: {', '.join(sel_channels)} · 등급 라벨 순서 SP→RD",
+        anchor="sec-optout")
 cc1, cc2 = st.columns([1.3, 1])
 with cc1:
     daily_ch = fl.groupby(["date", "channel"])["out"].sum().reset_index()
@@ -349,7 +378,7 @@ st.plotly_chart(figh, use_container_width=True)
 # ════════════════════════════════════════════════════════════
 # 4. 그룹 내 등급별 인사이트
 # ════════════════════════════════════════════════════════════
-section("그룹 내 등급별 인사이트", "각 그룹 안에서 등급 간 도달·이탈 비교")
+section("그룹 내 등급별 인사이트", "각 그룹 안에서 등급 간 도달·이탈 비교", anchor="sec-within")
 for grp in sel_groups:
     members = [g for g in GROUPS[grp] if g in grade_order_sel]
     if not members:
@@ -387,7 +416,7 @@ for grp in sel_groups:
 # ════════════════════════════════════════════════════════════
 # 5. 상세 테이블
 # ════════════════════════════════════════════════════════════
-section("상세 데이터", "등급별 종합 (도달=최근일, 거부/순증감=기간 합계)")
+section("상세 데이터", "등급별 종합 (도달=최근일, 거부/순증감=기간 합계)", anchor="sec-table")
 det = fw_last.groupby("grade").agg(act=("act", "sum"), act_push=("act_push", "sum"),
                                    tot_push=("tot_push", "sum"), unreach=("unreach_push", "sum")).reindex(grade_order_sel)
 det["reach"] = np.where(det["act_push"] > 0, det["tot_push"] / det["act_push"] * 100, 0).round(1)
@@ -409,3 +438,33 @@ st.download_button("⬇️ 집계 CSV 다운로드", det.to_csv(index=False).enc
 
 st.caption("ⓘ 앱 미보유/삭제 = ACT_PUSH_MEM − TOT_PUSH_MEM · 도달률 = TOT_PUSH/ACT_PUSH · "
            "수신거부율 = OUT/TOT · 순증감 = NEW − OUT · VIP=SP·PT·GD·SV·BK / 일반=PP·RD")
+
+# ── 스크롤스파이: 현재 보는 섹션을 사이드바 메뉴에서 강조 (베스트-에포트 JS) ──
+components.html("""
+<script>
+const doc = window.parent.document;
+function getScroller(){
+  const c = [doc.scrollingElement, doc.querySelector('section.main'),
+             doc.querySelector('[data-testid="stMain"]'),
+             doc.querySelector('[data-testid="stAppViewContainer"]'),
+             doc.documentElement, doc.body];
+  for(const e of c){ if(e && e.scrollHeight > e.clientHeight + 5) return e; }
+  return doc.scrollingElement || doc.documentElement;
+}
+function spy(){
+  const titles = Array.from(doc.querySelectorAll('.section-title')).filter(t => t.id);
+  if(!titles.length) return;
+  let active = titles[0].id;
+  for(const t of titles){ if(t.getBoundingClientRect().top <= 140) active = t.id; }
+  const se = getScroller();
+  if(se && se.scrollTop + se.clientHeight >= se.scrollHeight - 8){ active = titles[titles.length-1].id; }
+  doc.querySelectorAll('a.navlink').forEach(a=>{
+    const on = a.getAttribute('href') === '#'+active;
+    a.style.background = on ? '#d6e4f7' : '#f2f5fa';
+    a.style.color = on ? '#163E78' : '#2E68B0';
+  });
+}
+window.parent.addEventListener('scroll', spy, true);
+setInterval(spy, 400); setTimeout(spy, 300);
+</script>
+""", height=0)
