@@ -4,6 +4,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit.components.v1 as components
+import pathlib
 
 # ── 기본 설정 ──────────────────────────────────────────────
 st.set_page_config(
@@ -115,6 +116,24 @@ def load_data(file):
     return w, L
 
 
+@st.cache_data(show_spinner=False)
+def load_longterm():
+    """장기 추세(전체·등급무관) CSV. 없으면 None."""
+    p = pathlib.Path(__file__).parent / "data" / "longterm.csv"
+    if not p.exists():
+        return None
+    lt = pd.read_csv(p)
+    lt["date"] = pd.to_datetime(lt["date"])
+    lt["metric"] = lt["metric"].astype(str).str.replace(" ", "", regex=False)
+    lt["value"] = pd.to_numeric(lt["value"], errors="coerce")
+    return lt
+
+
+def lt_series(lt, source, metric, segment="Total"):
+    d = lt[(lt["source"] == source) & (lt["segment"] == segment) & (lt["metric"] == metric)]
+    return d.set_index("date")["value"].sort_index()
+
+
 def fnum(x):
     return f"{int(round(x)):,}"
 
@@ -146,6 +165,7 @@ def section(title, hint="", anchor=None):
 # 사이드바 분석 메뉴 항목 (anchor, 라벨)
 MENU = [
     ("sec-core", "🔑 핵심 진단"),
+    ("sec-trend", "📈 장기 추세 (전체)"),
     ("sec-group", "👥 그룹 비교 (VIP vs 일반)"),
     ("sec-reach", "📲 앱푸시 도달 진단"),
     ("sec-optout", "🚫 수신거부 분석"),
@@ -288,6 +308,67 @@ with c4: metric_card("기간 기존이탈(전채널)", fnum(fl["out"].sum()), f"
 net_all = fl["new"].sum() - fl["out"].sum()
 with c5: metric_card("순증감(신규−거부)", fsigned(net_all),
                      "구독자 순증가" if net_all >= 0 else "구독자 순감소")
+
+# ════════════════════════════════════════════════════════════
+# 0.5 장기 추세 (전체·등급무관) — 별도 히스토리 데이터(25.1.1~)
+# ════════════════════════════════════════════════════════════
+LT = load_longterm()
+if LT is not None:
+    section("장기 추세 (전체·등급무관)", "25.1.1~26.6.25 일별 · 전체회원 기준(등급 구분 불가) · VIP는 절대 도달률↑이나 동일 하락 압력",
+            anchor="sec-trend")
+    act_s = lt_series(LT, "MEMBERSHIP", "전체유효회원")
+    tp_s = lt_series(LT, "MEMBERSHIP", "타겟팅가능")
+    reach_s = (tp_s / act_s * 100).dropna()
+    if len(reach_s) > 1:
+        r0, r1 = reach_s.iloc[0], reach_s.iloc[-1]
+        a0, a1 = act_s.iloc[0], act_s.iloc[-1]
+        insight(
+            f"전체 <b>푸시 도달률 {r0:.1f}% → {r1:.1f}%</b>로 지속 하락. 같은 기간 전체유효회원은 "
+            f"{fnum(a0)} → {fnum(a1)} (<b>+{(a1/a0-1)*100:.0f}%</b>) 늘었지만 푸시 타겟팅가능 모수는 "
+            f"{fnum(tp_s.iloc[0])} → {fnum(tp_s.iloc[-1])}로 정체 — 신규 유입이 앱 설치로 이어지지 않아 "
+            f"<b>상대 도달률이 구조적으로 하락</b>합니다. DAU 역신장의 매크로 배경.", "warn")
+
+    # 회원 증가 vs 푸시 도달률 (이중축)
+    figt = go.Figure()
+    figt.add_bar(x=act_s.index, y=act_s.values, name="전체유효회원", marker_color="#d9e2ef", yaxis="y2")
+    figt.add_scatter(x=reach_s.index, y=reach_s.values, name="푸시 도달률(%)",
+                     mode="lines", line=dict(color="#C44E52", width=2.5))
+    figt.update_layout(height=340, margin=dict(t=20, b=10), hovermode="x unified", legend_title_text="",
+                       title="회원수는 ↑, 푸시 도달률은 ↓",
+                       yaxis=dict(title="푸시 도달률(%)"),
+                       yaxis2=dict(title="전체유효회원", overlaying="y", side="right", showgrid=False))
+    st.plotly_chart(figt, use_container_width=True)
+
+    tcol1, tcol2 = st.columns(2)
+    with tcol1:
+        # 채널별 타겟팅가능 모수 — 시작=100 지수화
+        idx_rows = []
+        for ch in CHANNELS:
+            s = lt_series(LT, ch, "수신동의")
+            if len(s) and s.iloc[0]:
+                idx_rows.append(pd.DataFrame({"date": s.index, "idx": s.values / s.iloc[0] * 100, "채널": ch}))
+        if idx_rows:
+            idf = pd.concat(idx_rows)
+            figi = px.line(idf, x="date", y="idx", color="채널", color_discrete_map=CH_COLOR,
+                           labels={"idx": "지수(시작=100)", "date": "일자"},
+                           title="채널별 타겟팅가능 모수 (시작=100)")
+            figi.update_layout(height=320, margin=dict(t=40, b=10), hovermode="x unified", legend_title_text="")
+            st.plotly_chart(figi, use_container_width=True)
+    with tcol2:
+        # 채널별 월별 증감(신규추가−기존이탈)
+        net_rows = []
+        for ch in CHANNELS:
+            s = lt_series(LT, ch, "증감")
+            if len(s):
+                m = s.resample("MS").sum()
+                net_rows.append(pd.DataFrame({"month": m.index, "증감": m.values, "채널": ch}))
+        if net_rows:
+            ndf = pd.concat(net_rows)
+            fign = px.bar(ndf, x="month", y="증감", color="채널", barmode="group",
+                          color_discrete_map=CH_COLOR, labels={"month": "월", "증감": "월 증감"},
+                          title="채널별 월 증감 (신규추가−기존이탈)")
+            fign.update_layout(height=320, margin=dict(t=40, b=10), legend_title_text="")
+            st.plotly_chart(fign, use_container_width=True)
 
 # ════════════════════════════════════════════════════════════
 # 1. 그룹 비교 (VIP vs 일반)
