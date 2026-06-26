@@ -22,12 +22,13 @@ GROUP_COLOR = {"VIP": "#4C72B0", "일반": "#B0B0B0"}
 CHANNELS = ["PUSH", "SMS", "EMAIL"]
 CH_COLOR = {"PUSH": "#4C72B0", "SMS": "#DD8452", "EMAIL": "#55A868"}
 
-# Plotly 한글 폰트 — 차트 제목/축 라벨이 깨지지 않도록 (브라우저 폰트 사용)
-KFONT = "Malgun Gothic, Apple SD Gothic Neo, Noto Sans KR, Nanum Gothic, sans-serif"
+# Plotly 한글 폰트 — Noto Sans KR 웹폰트를 강제 로드해 SVG 텍스트에 적용
+KFONT = "'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif"
 
 # ── 커스텀 CSS ─────────────────────────────────────────────
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
     .metric-card {
         background: #f8f9fa; border-radius: 10px; padding: 14px 18px;
         border-left: 4px solid #4C72B0; margin-bottom: 10px;
@@ -181,8 +182,11 @@ def insight(html, kind=""):
     st.markdown(f'<div class="insight {kind}">{html}</div>', unsafe_allow_html=True)
 
 
-def plot(fig):
-    """모든 차트에 한글 폰트를 직접 적용해 제목/축 라벨 깨짐 방지."""
+def plot(fig, title=None):
+    """차트 제목은 Streamlit 텍스트로 렌더(폰트 보장) + 차트엔 한글 폰트 직접 적용."""
+    if title:
+        st.markdown(f'<div style="font-weight:700;font-size:15px;margin:10px 0 -6px">{title}</div>',
+                    unsafe_allow_html=True)
     fig.update_layout(font=dict(family=KFONT))
     st.plotly_chart(fig, use_container_width=True)
 
@@ -359,14 +363,15 @@ if LT is not None:
 
     # 회원 증가 vs 푸시 도달률 (이중축)
     figt = go.Figure()
-    figt.add_bar(x=act_s.index, y=act_s.values, name="전체유효회원", marker_color="#d9e2ef", yaxis="y2")
-    figt.add_scatter(x=reach_s.index, y=reach_s.values, name="푸시 도달률(%)",
-                     mode="lines", line=dict(color="#C44E52", width=2.5), connectgaps=True)
-    figt.update_layout(height=340, margin=dict(t=20, b=10), hovermode="x unified", legend_title_text="",
-                       title="회원수는 ↑, 푸시 도달률은 ↓",
-                       yaxis=dict(title="푸시 도달률(%)"),
-                       yaxis2=dict(title="전체유효회원", overlaying="y", side="right", showgrid=False))
-    plot(figt)
+    # 막대(전체유효회원)는 기본 축(배경), 도달률 선은 오버레이 축(y2)에 둬서 막대 위로 렌더
+    figt.add_bar(x=act_s.index, y=act_s.values, name="전체유효회원",
+                 marker_color="#dbe3ef", marker_line_width=0, opacity=0.65)
+    figt.add_scatter(x=reach_s.index, y=reach_s.values, name="푸시 도달률(%)", yaxis="y2",
+                     mode="lines", line=dict(color="#C44E52", width=3), connectgaps=True)
+    figt.update_layout(height=340, margin=dict(t=10, b=10), hovermode="x unified", legend_title_text="",
+                       yaxis=dict(title="전체유효회원"),
+                       yaxis2=dict(title="푸시 도달률(%)", overlaying="y", side="right", showgrid=False))
+    plot(figt, "회원수는 ↑, 푸시 도달률은 ↓")
     st.caption(f"※ 풀 리카운트 등 비정상적으로 튀는 날은 정확도를 위해 자동 제외(롤링 중앙값 대비 과대 편차). {excl_txt}")
 
     tcol1, tcol2 = st.columns(2)
@@ -381,11 +386,10 @@ if LT is not None:
         if idx_rows:
             idf = pd.concat(idx_rows)
             figi = px.line(idf, x="date", y="idx", color="채널", color_discrete_map=CH_COLOR,
-                           labels={"idx": "지수(시작=100)", "date": "일자"},
-                           title="채널별 타겟팅가능 모수 (시작=100)")
+                           labels={"idx": "지수(시작=100)", "date": "일자"})
             figi.update_traces(connectgaps=True)
-            figi.update_layout(height=320, margin=dict(t=40, b=10), hovermode="x unified", legend_title_text="")
-            plot(figi)
+            figi.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified", legend_title_text="")
+            plot(figi, "채널별 타겟팅가능 모수 (시작=100)")
     with tcol2:
         # 채널별 월별 증감(신규추가−기존이탈) — 이상치 제외 후 월 합산
         net_rows = []
@@ -397,10 +401,9 @@ if LT is not None:
         if net_rows:
             ndf = pd.concat(net_rows).dropna(subset=["증감"])
             fign = px.bar(ndf, x="month", y="증감", color="채널", barmode="group",
-                          color_discrete_map=CH_COLOR, labels={"month": "월", "증감": "월 증감"},
-                          title="채널별 월 증감 (신규추가−기존이탈)")
-            fign.update_layout(height=320, margin=dict(t=40, b=10), legend_title_text="")
-            plot(fign)
+                          color_discrete_map=CH_COLOR, labels={"month": "월", "증감": "월 증감"})
+            fign.update_layout(height=320, margin=dict(t=10, b=10), legend_title_text="")
+            plot(fign, "채널별 월 증감 (신규추가−기존이탈)")
 
 # ════════════════════════════════════════════════════════════
 # 1. 그룹 비교 (VIP vs 일반)
@@ -469,11 +472,10 @@ with cc1:
     daily_ch = fl.groupby(["date", "channel"])["out"].sum().reset_index()
     figc = px.line(daily_ch, x="date", y="out", color="channel", markers=True,
                    color_discrete_map=CH_COLOR, labels={"out": "수신거부", "date": "일자", "channel": "채널"})
-    figc.update_layout(height=320, margin=dict(t=20, b=10), hovermode="x unified",
-                       legend_title_text="", title="일별 채널별 수신거부 추이")
+    figc.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified", legend_title_text="")
     if log_y:
         figc.update_yaxes(type="log")
-    plot(figc)
+    plot(figc, "일별 채널별 수신거부 추이")
 with cc2:
     # 수신거부율 = 기간 거부 합계 / 최근일 수신자수(선택 채널 합) — 채널 간 max 혼용 제거
     lc = fl["date"].max()
@@ -484,12 +486,12 @@ with cc2:
     grade_out["rate"] = np.where(grade_out["tot"] > 0, grade_out["out"] / grade_out["tot"] * 100, 0)
     go_df = grade_out.reset_index()
     figo = px.bar(go_df, x="grade", y="rate", color="rate", color_continuous_scale="OrRd",
-                  labels={"rate": "수신거부율(%)", "grade": "등급"}, title="등급별 수신거부율 (전채널)",
+                  labels={"rate": "수신거부율(%)", "grade": "등급"},
                   text=go_df["out"].map(lambda v: f"이탈 {int(v):,}"))
     figo.update_traces(textposition="outside", textfont_size=10, cliponaxis=False)
-    figo.update_layout(height=350, margin=dict(t=30, b=10), coloraxis_showscale=False,
+    figo.update_layout(height=350, margin=dict(t=10, b=10), coloraxis_showscale=False,
                        xaxis=dict(categoryorder="array", categoryarray=grade_order_sel))
-    plot(figo)
+    plot(figo, "등급별 수신거부율 (전채널)")
     st.caption("※ 모수가 작은 상위 등급(SP·PT)은 이탈 몇 건만으로 율이 크게 튑니다. "
                "막대 위 절대 이탈 건수를 함께 보세요 — 실제 이탈 물량은 RD·BK·PP가 큽니다.")
 
