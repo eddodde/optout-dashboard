@@ -22,6 +22,12 @@ GROUP_COLOR = {"VIP": "#4C72B0", "일반": "#B0B0B0"}
 CHANNELS = ["PUSH", "SMS", "EMAIL"]
 CH_COLOR = {"PUSH": "#4C72B0", "SMS": "#DD8452", "EMAIL": "#55A868"}
 
+# Plotly 한글 폰트 — 차트 제목/축 라벨이 깨지지 않도록 (브라우저 폰트 사용)
+import plotly.io as pio
+pio.templates["kr"] = go.layout.Template(layout=dict(
+    font=dict(family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR','Nanum Gothic',sans-serif")))
+pio.templates.default = "plotly+kr"
+
 # ── 커스텀 CSS ─────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -450,11 +456,16 @@ with cc2:
     grade_out["tot"] = last_tot
     grade_out = grade_out.reindex(grade_order_sel)
     grade_out["rate"] = np.where(grade_out["tot"] > 0, grade_out["out"] / grade_out["tot"] * 100, 0)
-    figo = px.bar(grade_out.reset_index(), x="grade", y="rate", color="rate", color_continuous_scale="OrRd",
-                  labels={"rate": "수신거부율(%)", "grade": "등급"}, title="등급별 수신거부율")
-    figo.update_layout(height=350, margin=dict(t=20, b=10), coloraxis_showscale=False,
+    go_df = grade_out.reset_index()
+    figo = px.bar(go_df, x="grade", y="rate", color="rate", color_continuous_scale="OrRd",
+                  labels={"rate": "수신거부율(%)", "grade": "등급"}, title="등급별 수신거부율 (전채널)",
+                  text=go_df["out"].map(lambda v: f"이탈 {int(v):,}"))
+    figo.update_traces(textposition="outside", textfont_size=10, cliponaxis=False)
+    figo.update_layout(height=350, margin=dict(t=30, b=10), coloraxis_showscale=False,
                        xaxis=dict(categoryorder="array", categoryarray=grade_order_sel))
     st.plotly_chart(figo, use_container_width=True)
+    st.caption("※ 모수가 작은 상위 등급(SP·PT)은 이탈 몇 건만으로 율이 크게 튑니다. "
+               "막대 위 절대 이탈 건수를 함께 보세요 — 실제 이탈 물량은 RD·BK·PP가 큽니다.")
 
 # 등급 × 채널 히트맵
 metric_choice = st.radio("히트맵 지표", ["수신거부 건수", "수신거부율(%)", "순증감"],
