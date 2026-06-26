@@ -337,10 +337,16 @@ LT = load_longterm()
 if LT is not None:
     section("장기 추세 (전체·등급무관)", "25.1.1~26.6.25 일별 · 전체회원 기준(등급 구분 불가) · VIP는 절대 도달률↑이나 동일 하락 압력",
             anchor="sec-trend")
-    # 이상치(특정일 급등/급락) 제외 — 롤링 중앙값 대비 과대 편차 날짜 NaN 처리
-    act_s = drop_outliers(lt_series(LT, "MEMBERSHIP", "전체유효회원"))
-    tp_s = drop_outliers(lt_series(LT, "MEMBERSHIP", "타겟팅가능"))
+    # 이상치(특정일 풀 리카운트 등 급등/급락) 제외 — 롤링 중앙값 대비 과대 편차 날짜 NaN 처리
+    raw_act = lt_series(LT, "MEMBERSHIP", "전체유효회원")
+    raw_tp = lt_series(LT, "MEMBERSHIP", "타겟팅가능")
+    act_s = drop_outliers(raw_act)
+    tp_s = drop_outliers(raw_tp)
     reach_s = (tp_s / act_s * 100).dropna()
+    excl = sorted(set(raw_tp.index[raw_tp.notna() & tp_s.isna()]) |
+                  set(raw_act.index[raw_act.notna() & act_s.isna()]))
+    excl_txt = ("제외된 날: " + ", ".join(d.strftime("%Y-%m-%d") for d in excl[:5]) +
+                (f" 외 {len(excl)-5}일" if len(excl) > 5 else "")) if excl else "제외된 이상치 없음"
     if len(reach_s) > 1:
         r0, r1 = reach_s.iloc[0], reach_s.iloc[-1]
         a0, a1 = act_s.dropna().iloc[0], act_s.dropna().iloc[-1]
@@ -361,7 +367,7 @@ if LT is not None:
                        yaxis=dict(title="푸시 도달률(%)"),
                        yaxis2=dict(title="전체유효회원", overlaying="y", side="right", showgrid=False))
     plot(figt)
-    st.caption("※ 데이터가 비정상적으로 튀는 날(롤링 중앙값 대비 과대 편차)은 정확도를 위해 자동 제외했습니다.")
+    st.caption(f"※ 풀 리카운트 등 비정상적으로 튀는 날은 정확도를 위해 자동 제외(롤링 중앙값 대비 과대 편차). {excl_txt}")
 
     tcol1, tcol2 = st.columns(2)
     with tcol1:
