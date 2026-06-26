@@ -23,10 +23,7 @@ CHANNELS = ["PUSH", "SMS", "EMAIL"]
 CH_COLOR = {"PUSH": "#4C72B0", "SMS": "#DD8452", "EMAIL": "#55A868"}
 
 # Plotly 한글 폰트 — 차트 제목/축 라벨이 깨지지 않도록 (브라우저 폰트 사용)
-import plotly.io as pio
-pio.templates["kr"] = go.layout.Template(layout=dict(
-    font=dict(family="'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR','Nanum Gothic',sans-serif")))
-pio.templates.default = "plotly+kr"
+KFONT = "Malgun Gothic, Apple SD Gothic Neo, Noto Sans KR, Nanum Gothic, sans-serif"
 
 # ── 커스텀 CSS ─────────────────────────────────────────────
 st.markdown("""
@@ -184,6 +181,24 @@ def insight(html, kind=""):
     st.markdown(f'<div class="insight {kind}">{html}</div>', unsafe_allow_html=True)
 
 
+def plot(fig):
+    """모든 차트에 한글 폰트를 직접 적용해 제목/축 라벨 깨짐 방지."""
+    fig.update_layout(font=dict(family=KFONT))
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def drop_outliers(s, window=21, k=4.0):
+    """롤링 중앙값 대비 |편차| > k*MAD 인 이상치 날짜를 NaN 처리(차트에서 제외)."""
+    s = s.sort_index()
+    med = s.rolling(window, center=True, min_periods=5).median()
+    mad = (s - med).abs().rolling(window, center=True, min_periods=5).median()
+    thr = (k * mad).replace(0, np.nan)
+    mask = (s - med).abs() > thr
+    out = s.copy()
+    out[mask.fillna(False)] = np.nan
+    return out
+
+
 def trend_word(daily_series):
     """일별 시계열의 추세를 첫/끝 3일 평균 비교로 판정."""
     s = daily_series.dropna()
@@ -322,59 +337,64 @@ LT = load_longterm()
 if LT is not None:
     section("장기 추세 (전체·등급무관)", "25.1.1~26.6.25 일별 · 전체회원 기준(등급 구분 불가) · VIP는 절대 도달률↑이나 동일 하락 압력",
             anchor="sec-trend")
-    act_s = lt_series(LT, "MEMBERSHIP", "전체유효회원")
-    tp_s = lt_series(LT, "MEMBERSHIP", "타겟팅가능")
+    # 이상치(특정일 급등/급락) 제외 — 롤링 중앙값 대비 과대 편차 날짜 NaN 처리
+    act_s = drop_outliers(lt_series(LT, "MEMBERSHIP", "전체유효회원"))
+    tp_s = drop_outliers(lt_series(LT, "MEMBERSHIP", "타겟팅가능"))
     reach_s = (tp_s / act_s * 100).dropna()
     if len(reach_s) > 1:
         r0, r1 = reach_s.iloc[0], reach_s.iloc[-1]
-        a0, a1 = act_s.iloc[0], act_s.iloc[-1]
+        a0, a1 = act_s.dropna().iloc[0], act_s.dropna().iloc[-1]
+        t0, t1 = tp_s.dropna().iloc[0], tp_s.dropna().iloc[-1]
         insight(
             f"전체 <b>푸시 도달률 {r0:.1f}% → {r1:.1f}%</b>로 지속 하락. 같은 기간 전체유효회원은 "
             f"{fnum(a0)} → {fnum(a1)} (<b>+{(a1/a0-1)*100:.0f}%</b>) 늘었지만 푸시 타겟팅가능 모수는 "
-            f"{fnum(tp_s.iloc[0])} → {fnum(tp_s.iloc[-1])}로 정체 — 신규 유입이 앱 설치로 이어지지 않아 "
+            f"{fnum(t0)} → {fnum(t1)}로 정체 — 신규 유입이 앱 설치로 이어지지 않아 "
             f"<b>상대 도달률이 구조적으로 하락</b>합니다. DAU 역신장의 매크로 배경.", "warn")
 
     # 회원 증가 vs 푸시 도달률 (이중축)
     figt = go.Figure()
     figt.add_bar(x=act_s.index, y=act_s.values, name="전체유효회원", marker_color="#d9e2ef", yaxis="y2")
     figt.add_scatter(x=reach_s.index, y=reach_s.values, name="푸시 도달률(%)",
-                     mode="lines", line=dict(color="#C44E52", width=2.5))
+                     mode="lines", line=dict(color="#C44E52", width=2.5), connectgaps=True)
     figt.update_layout(height=340, margin=dict(t=20, b=10), hovermode="x unified", legend_title_text="",
                        title="회원수는 ↑, 푸시 도달률은 ↓",
                        yaxis=dict(title="푸시 도달률(%)"),
                        yaxis2=dict(title="전체유효회원", overlaying="y", side="right", showgrid=False))
-    st.plotly_chart(figt, use_container_width=True)
+    plot(figt)
+    st.caption("※ 데이터가 비정상적으로 튀는 날(롤링 중앙값 대비 과대 편차)은 정확도를 위해 자동 제외했습니다.")
 
     tcol1, tcol2 = st.columns(2)
     with tcol1:
         # 채널별 타겟팅가능 모수 — 시작=100 지수화
         idx_rows = []
         for ch in CHANNELS:
-            s = lt_series(LT, ch, "수신동의")
-            if len(s) and s.iloc[0]:
-                idx_rows.append(pd.DataFrame({"date": s.index, "idx": s.values / s.iloc[0] * 100, "채널": ch}))
+            s = drop_outliers(lt_series(LT, ch, "수신동의"))
+            base = s.dropna()
+            if len(base):
+                idx_rows.append(pd.DataFrame({"date": s.index, "idx": s.values / base.iloc[0] * 100, "채널": ch}))
         if idx_rows:
             idf = pd.concat(idx_rows)
             figi = px.line(idf, x="date", y="idx", color="채널", color_discrete_map=CH_COLOR,
                            labels={"idx": "지수(시작=100)", "date": "일자"},
                            title="채널별 타겟팅가능 모수 (시작=100)")
+            figi.update_traces(connectgaps=True)
             figi.update_layout(height=320, margin=dict(t=40, b=10), hovermode="x unified", legend_title_text="")
-            st.plotly_chart(figi, use_container_width=True)
+            plot(figi)
     with tcol2:
-        # 채널별 월별 증감(신규추가−기존이탈)
+        # 채널별 월별 증감(신규추가−기존이탈) — 이상치 제외 후 월 합산
         net_rows = []
         for ch in CHANNELS:
-            s = lt_series(LT, ch, "증감")
+            s = drop_outliers(lt_series(LT, ch, "증감"))
             if len(s):
-                m = s.resample("MS").sum()
+                m = s.resample("MS").sum(min_count=1)
                 net_rows.append(pd.DataFrame({"month": m.index, "증감": m.values, "채널": ch}))
         if net_rows:
-            ndf = pd.concat(net_rows)
+            ndf = pd.concat(net_rows).dropna(subset=["증감"])
             fign = px.bar(ndf, x="month", y="증감", color="채널", barmode="group",
                           color_discrete_map=CH_COLOR, labels={"month": "월", "증감": "월 증감"},
                           title="채널별 월 증감 (신규추가−기존이탈)")
             fign.update_layout(height=320, margin=dict(t=40, b=10), legend_title_text="")
-            st.plotly_chart(fign, use_container_width=True)
+            plot(fign)
 
 # ════════════════════════════════════════════════════════════
 # 1. 그룹 비교 (VIP vs 일반)
@@ -403,7 +423,7 @@ grp_daily["reach"] = np.where(grp_daily["ap"] > 0, grp_daily["tp"] / grp_daily["
 figr = px.line(grp_daily, x="date", y="reach", color="group", markers=True,
                color_discrete_map=GROUP_COLOR, labels={"reach": "앱푸시 도달률(%)", "date": "일자", "group": "그룹"})
 figr.update_layout(height=320, margin=dict(t=20, b=10), hovermode="x unified", legend_title_text="")
-st.plotly_chart(figr, use_container_width=True)
+plot(figr)
 
 # ════════════════════════════════════════════════════════════
 # 2. 앱푸시 도달률 & 앱 미보유/삭제 (DAU 핵심)
@@ -423,7 +443,7 @@ fig.update_layout(barmode="stack", height=400, margin=dict(t=20, b=10),
                   yaxis=dict(title="수신동의 모수"), legend_title_text="",
                   yaxis2=dict(title="도달률(%)", overlaying="y", side="right", range=[0, 100], showgrid=False),
                   xaxis=dict(categoryorder="array", categoryarray=grade_order_sel))
-st.plotly_chart(fig, use_container_width=True)
+plot(fig)
 
 worst = gp["reach"].idxmin()
 insight(
@@ -447,7 +467,7 @@ with cc1:
                        legend_title_text="", title="일별 채널별 수신거부 추이")
     if log_y:
         figc.update_yaxes(type="log")
-    st.plotly_chart(figc, use_container_width=True)
+    plot(figc)
 with cc2:
     # 수신거부율 = 기간 거부 합계 / 최근일 수신자수(선택 채널 합) — 채널 간 max 혼용 제거
     lc = fl["date"].max()
@@ -463,7 +483,7 @@ with cc2:
     figo.update_traces(textposition="outside", textfont_size=10, cliponaxis=False)
     figo.update_layout(height=350, margin=dict(t=30, b=10), coloraxis_showscale=False,
                        xaxis=dict(categoryorder="array", categoryarray=grade_order_sel))
-    st.plotly_chart(figo, use_container_width=True)
+    plot(figo)
     st.caption("※ 모수가 작은 상위 등급(SP·PT)은 이탈 몇 건만으로 율이 크게 튑니다. "
                "막대 위 절대 이탈 건수를 함께 보세요 — 실제 이탈 물량은 RD·BK·PP가 큽니다.")
 
@@ -484,7 +504,7 @@ else:
 figh = px.imshow(z, text_auto=fmt, aspect="auto", color_continuous_scale=cs,
                  labels=dict(x="채널", y="등급", color=metric_choice))
 figh.update_layout(height=max(300, 42 * len(grade_order_sel) + 80), margin=dict(t=20, b=10))
-st.plotly_chart(figh, use_container_width=True)
+plot(figh)
 
 # ════════════════════════════════════════════════════════════
 # 4. 그룹 내 등급별 인사이트
