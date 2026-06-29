@@ -57,6 +57,9 @@ st.markdown("""
     .insight.warn { background: #fdeeee; border-left-color: #C44E52; }
     .insight.ok   { background: #eef7f0; border-left-color: #55A868; }
     .insight b { color: #1a1a2e; }
+    .insight ul { margin: 0; padding-left: 20px; }
+    .insight li { margin: 5px 0; }
+    .insight .cap { font-size: 12px; font-weight: 700; color: #666; display: block; margin-bottom: 6px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -178,8 +181,16 @@ MENU = [
 ]
 
 
-def insight(html, kind=""):
-    st.markdown(f'<div class="insight {kind}">{html}</div>', unsafe_allow_html=True)
+def insight(bullets, kind="", cap="💡 시사점"):
+    """인사이트를 불릿 목록으로 렌더(시사점 위주). bullets=문자열 또는 리스트."""
+    if isinstance(bullets, str):
+        bullets = [bullets]
+    bullets = [b for b in bullets if b]
+    if not bullets:
+        return
+    items = "".join(f"<li>{b}</li>" for b in bullets)
+    head = f'<span class="cap">{cap}</span>' if cap else ""
+    st.markdown(f'<div class="insight {kind}">{head}<ul>{items}</ul></div>', unsafe_allow_html=True)
 
 
 def plot(fig, title=None):
@@ -188,6 +199,7 @@ def plot(fig, title=None):
         st.markdown(f'<div style="font-weight:700;font-size:15px;margin:10px 0 -6px">{title}</div>',
                     unsafe_allow_html=True)
     fig.update_layout(font=dict(family=KFONT))
+    fig.update_yaxes(tickformat=",")   # 축 숫자 k/M 금지 → #,##0(천단위 콤마)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -324,14 +336,11 @@ if vip["act_push"]:
     push_net = vip["chnet"].get("PUSH", 0)
     push_out = vip["chout"].get("PUSH", 0)
     kind = "warn" if (vip["reach"] < 50 or push_net < 0) else ""
-    insight(
-        f"VIP 퍼널: 전체유효회원 {fnum(vip['act'])} → <b>수신동의 {vip['consent']:.1f}%</b>({fnum(vip['act_push'])}) "
-        f"→ <b>타겟팅가능 {vip['reach']:.1f}%</b>({fnum(vip['tot_push'])}). "
-        f"동의는 거의 다 받았지만 <b>{fnum(vip['unreach'])}명({share:.0f}%)</b>이 <b>앱 미보유/삭제</b>로 푸시 발송 불가입니다. "
-        f"특히 기간 중 <b>PUSH 증감 {fsigned(push_net)}</b> — 앱 DAU를 끄는 푸시 타겟팅가능 모수 자체가 "
-        f"{'줄고 있어' if push_net < 0 else '정체돼'} DAU 역신장과 직결됩니다. "
-        f"(SMS {fsigned(vip['chnet'].get('SMS',0))} · EMAIL {fsigned(vip['chnet'].get('EMAIL',0))})",
-        kind)
+    insight([
+        f"수신동의는 <b>{vip['consent']:.1f}%</b>로 이미 충분 — 병목은 동의가 아니라 <b>앱 보유</b>(타겟팅가능 {vip['reach']:.1f}%). 동의 확보형 캠페인은 효과 한계.",
+        f"<b>{fnum(vip['unreach'])}명(동의자의 {share:.0f}%)</b>이 앱 미보유/삭제로 푸시 도달 불가 → 이 풀의 <b>재설치 전환</b>이 VIP DAU 회복의 최대 레버.",
+        f"PUSH만 {'순감' if push_net < 0 else '정체'}({fsigned(push_net)})이고 SMS({fsigned(vip['chnet'].get('SMS',0))})·EMAIL({fsigned(vip['chnet'].get('EMAIL',0))})은 순증 → 앱 채널만 약화. 푸시 못 닿는 VIP엔 <b>알림톡/카카오 대체 도달</b> 병행.",
+    ], kind)
 
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1: metric_card("VIP 푸시 도달률", f"{vip['reach']:.1f}%", f"수신동의율 {vip['consent']:.1f}% → 타겟팅가능")
@@ -350,8 +359,10 @@ else:
 # ════════════════════════════════════════════════════════════
 section("그룹 비교 — VIP vs 일반", "VIP 중심, 일반은 대조용 · 등급 필터와 무관하게 항상 표시", anchor="sec-group")
 gcols = st.columns(2)
+gsnap = {}
 for col, grp in zip(gcols, ["VIP", "일반"]):
     gs = group_snapshot(grp, fw_d_last, fl_d, fw_d)
+    gsnap[grp] = gs
     share = (gs["unreach"] / gs["act_push"] * 100) if gs["act_push"] else 0
     cn = gs["chnet"]
     with col:
@@ -372,7 +383,17 @@ grp_daily["reach"] = np.where(grp_daily["ap"] > 0, grp_daily["tp"] / grp_daily["
 figr = px.line(grp_daily, x="date", y="reach", color="group", markers=True,
                color_discrete_map=GROUP_COLOR, labels={"reach": "앱푸시 도달률(%)", "date": "일자", "group": "그룹"})
 figr.update_layout(height=320, margin=dict(t=20, b=10), hovermode="x unified", legend_title_text="")
-plot(figr)
+plot(figr, "그룹별 앱푸시 도달률 추이")
+
+if "VIP" in gsnap and "일반" in gsnap:
+    v, gen = gsnap["VIP"], gsnap["일반"]
+    vp, gpn = v["chnet"].get("PUSH", 0), gen["chnet"].get("PUSH", 0)
+    insight([
+        f"VIP 도달률({v['reach']:.1f}%)이 일반({gen['reach']:.1f}%)보다 높지만 절대 미보유/삭제가 <b>{fnum(v['unreach'])}명</b> → 규모 자체가 커서 VIP 우선 공략의 실익이 큼.",
+        (f"VIP PUSH는 <b>{fsigned(vp)}</b>로 {'순감' if vp < 0 else '정체'}인데 일반은 {fsigned(gpn)} → 같은 푸시인데 VIP만 약화, VIP 전용 리텐션 대응 필요."
+         if vp < gpn or vp < 0 else
+         f"VIP·일반 PUSH 증감(VIP {fsigned(vp)} / 일반 {fsigned(gpn)}) 모두 점검 — 푸시 도달 모수 방어가 공통 과제."),
+    ])
 
 # ════════════════════════════════════════════════════════════
 # 2. 앱푸시 도달률 & 앱 미보유/삭제 (DAU 핵심)
@@ -395,10 +416,10 @@ fig.update_layout(barmode="stack", height=400, margin=dict(t=20, b=10),
 plot(fig)
 
 worst = gp["reach"].idxmin()
-insight(
-    f"도달률이 가장 낮은 등급은 <b>{worst}</b> (<b>{gp.loc[worst,'reach']:.1f}%</b>, 미보유/삭제 "
-    f"{fnum(gp.loc[worst,'unreach'])}명). 등급 라벨 순서는 상위(SP)→하위(RD)이며, 막대의 빨강 영역이 클수록 "
-    f"앱푸시로 닿지 못하는 모수가 큽니다 — DAU 회복을 위해 우선 공략할 구간입니다.")
+insight([
+    f"도달률 최저 <b>{worst}</b>({gp.loc[worst,'reach']:.1f}%)에 미보유/삭제 <b>{fnum(gp.loc[worst,'unreach'])}명</b> 집중 → 재설치 캠페인 <b>1순위 타겟</b>.",
+    "막대 빨강(미보유)이 큰 등급은 발송해도 안 닿음 → 발송 타겟 선정 시 '<b>앱 보유</b>' 필터를 적용해 도달 효율 확보.",
+])
 
 # VIP 앱 미보유/삭제 일별 추세 (이탈과 별개 누수) — 등급 필터 무관 VIP 전체
 vip_daily = (fw_d[fw_d["group"] == "VIP"].groupby("date")
@@ -471,6 +492,14 @@ figh = px.imshow(z, text_auto=fmt, aspect="auto", color_continuous_scale=cs,
 figh.update_layout(height=max(300, 42 * len(grade_order_sel) + 80), margin=dict(t=20, b=10))
 plot(figh)
 
+ch_o = fl.groupby("channel")["out"].sum()
+ch_n = fl.groupby("channel")["new"].sum()
+push_net2 = ch_n.get("PUSH", 0) - ch_o.get("PUSH", 0)
+insight([
+    f"DAU와 직결되는 건 <b>PUSH 증감({fsigned(push_net2)})</b> — SMS/EMAIL 순증은 앱 방문 기여가 적어 수신거부 방어 우선순위는 PUSH.",
+    "등급별 '수신거부율'은 모수 작은 상위 등급에서 튀는 노이즈 → 방어 대상은 율이 아니라 <b>절대 이탈 건수(RD·BK·PP)</b> 기준으로 선정.",
+])
+
 # ════════════════════════════════════════════════════════════
 # 4. 그룹 내 등급별 인사이트
 # ════════════════════════════════════════════════════════════
@@ -501,13 +530,12 @@ for grp in sel_groups:
     lo_reach = snap["reach"].idxmin()
     hi_out = outp["rate"].idxmax()
     neg_net = outp[outp["net"] < 0].index.tolist()
-    msg = (f"{grp} 내 도달률 최저는 <b>{lo_reach}</b>({snap.loc[lo_reach,'reach']:.1f}%), "
-           f"수신거부율 최고는 <b>{hi_out}</b>({outp.loc[hi_out,'rate']:.3f}%).")
-    if neg_net:
-        msg += f" 기간 중 <b>구독자 순감소</b> 등급: {', '.join(neg_net)} — 신규수신보다 이탈이 많습니다."
-    else:
-        msg += " 모든 등급이 기간 중 구독자 순증가 상태입니다."
-    insight(msg, "warn" if (snap["reach"].min() < 40 or neg_net) else "")
+    bullets = [
+        f"{grp} 내 도달률 최저 <b>{lo_reach}</b>({snap.loc[lo_reach,'reach']:.1f}%) → 그룹 안에서도 재설치 우선 타겟.",
+        (f"구독 순감 등급: <b>{', '.join(neg_net)}</b> — 푸시 리텐션 점검 필요(신규<이탈)."
+         if neg_net else "전 등급 구독 순증 — 현 푸시 유지 흐름은 양호."),
+    ]
+    insight(bullets, "warn" if (snap["reach"].min() < 40 or neg_net) else "")
 
 # ════════════════════════════════════════════════════════════
 # 0.5 장기 추세 (전체·등급무관) — 별도 히스토리 데이터(25.1.1~)
@@ -530,11 +558,10 @@ if LT is not None:
         r0, r1 = reach_s.iloc[0], reach_s.iloc[-1]
         a0, a1 = act_s.dropna().iloc[0], act_s.dropna().iloc[-1]
         t0, t1 = tp_s.dropna().iloc[0], tp_s.dropna().iloc[-1]
-        insight(
-            f"전체 <b>푸시 도달률 {r0:.1f}% → {r1:.1f}%</b>로 지속 하락. 같은 기간 전체유효회원은 "
-            f"{fnum(a0)} → {fnum(a1)} (<b>+{(a1/a0-1)*100:.0f}%</b>) 늘었지만 푸시 타겟팅가능 모수는 "
-            f"{fnum(t0)} → {fnum(t1)}로 정체 — 신규 유입이 앱 설치로 이어지지 않아 "
-            f"<b>상대 도달률이 구조적으로 하락</b>합니다. DAU 역신장의 매크로 배경.", "warn")
+        insight([
+            f"회원 <b>+{(a1/a0-1)*100:.0f}%</b> 증가에도 푸시 타겟팅가능은 정체({fnum(t0)}→{fnum(t1)}) → <b>신규 획득이 도달 자산으로 축적되지 않음</b>. 획득 KPI와 별개로 '앱 보유 전환'을 지표화해야.",
+            f"도달률 {r0:.1f}%→{r1:.1f}% 하락은 구조적 — 일시 캠페인으론 못 막음 → <b>온보딩·앱 설치 단계의 구조 개선</b>이 본질 레버.",
+        ], "warn")
 
     # 회원 증가 vs 푸시 도달률 (이중축)
     figt = go.Figure()
@@ -556,10 +583,10 @@ if LT is not None:
     if len(gap_s) > 1:
         g0, g1 = gap_s.iloc[0], gap_s.iloc[-1]
         p0, p1 = gap_pct.iloc[0], gap_pct.iloc[-1]
-        insight(
-            f"<b>앱 미보유/삭제(전체)</b>는 {fnum(g0)} → <b>{fnum(g1)}</b> (<b>+{(g1/g0-1)*100:.0f}%</b>)로 증가, "
-            f"수신동의 대비 <b>{p0:.1f}% → {p1:.1f}%</b>. 이탈(수신거부)과 별개로 — 동의는 유지하지만 "
-            f"앱이 없어 푸시가 닿지 않는 모수가 계속 커지는 게 도달률 하락의 실제 동력입니다.")
+        insight([
+            f"동의는 유지되나 앱 없는 풀이 <b>+{(g1/g0-1)*100:.0f}%</b>({fnum(g1)})로 누적 → 발송량을 늘려도 도달은 안 늘어남(이미 발송 대상에서 제외됨).",
+            f"이탈(수신거부)보다 앱 미보유/삭제가 훨씬 큰 누수(수신동의 대비 {p1:.1f}%) → <b>수신거부 방어보다 앱 재설치·유지가 우선순위</b>.",
+        ])
         figg = go.Figure()
         figg.add_bar(x=gap_s.index, y=gap_s.values, name="앱 미보유/삭제(명)",
                      marker_color="#e7c3c3", marker_line_width=0, opacity=0.7)
