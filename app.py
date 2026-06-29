@@ -337,7 +337,8 @@ if vip["act_push"]:
     with c1: metric_card("VIP 푸시 도달률", f"{vip['reach']:.1f}%", f"수신동의율 {vip['consent']:.1f}% → 타겟팅가능")
     with c2: metric_card("VIP 앱 미보유/삭제", fnum(vip["unreach"]), f"수신동의의 {share:.0f}% · 푸시 발송 불가")
     with c3: metric_card("VIP 타겟팅가능_PUSH", fnum(vip["tot_push"]), f"수신동의 {fnum(vip['act_push'])}")
-    with c4: metric_card("VIP 기간 PUSH 이탈", fnum(push_out), f"일평균 {fnum(push_out / n_days)}")
+    with c4: metric_card("VIP PUSH 이탈(기간 누적)", fnum(push_out),
+                         f"{n_days}일 합계 · 일평균 {fnum(push_out / n_days)}명")
     with c5: metric_card("VIP PUSH 증감", fsigned(push_net),
                          "푸시 구독 순증" if push_net >= 0 else "푸시 구독 순감")
 else:
