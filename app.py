@@ -256,7 +256,8 @@ with st.sidebar:
     dmin, dmax = W["date"].min().date(), W["date"].max().date()
     dr = st.date_input("기간", value=(dmin, dmax), min_value=dmin, max_value=dmax)
     d0, d1 = dr if isinstance(dr, tuple) and len(dr) == 2 else (dmin, dmax)
-    sel_groups = st.multiselect("그룹", list(GROUPS.keys()), default=list(GROUPS.keys()))
+    st.caption("상세 섹션 기본값은 VIP입니다. 일반/전체 비교는 '그룹 비교' 섹션에서 항상 함께 보입니다.")
+    sel_groups = st.multiselect("그룹", list(GROUPS.keys()), default=["VIP"])
     grade_pool = [g for g in GRADE_ORDER if GRADE2GROUP.get(g) in sel_groups]
     sel_grades = st.multiselect("등급", grade_pool, default=grade_pool)
     sel_channels = st.multiselect("채널 (수신거부 분석)", CHANNELS, default=CHANNELS)
@@ -276,6 +277,11 @@ last_day = fw["date"].max()
 fw_last = fw[fw["date"] == last_day]          # 최근일 스냅샷(도달률·모수)
 grade_order_sel = [g for g in GRADE_ORDER if g in fw["grade"].unique()]
 
+# 핵심진단(VIP)·그룹비교용: 등급 필터 무관, 기간/채널만 적용 (전체 등급 유지)
+fw_d = W[(W["date"].dt.date >= d0) & (W["date"].dt.date <= d1)].copy()
+fl_d = L[(L["date"].dt.date >= d0) & (L["date"].dt.date <= d1) & (L["channel"].isin(sel_channels))].copy()
+fw_d_last = fw_d[fw_d["date"] == fw_d["date"].max()] if not fw_d.empty else fw_d
+
 
 def group_snapshot(grp, snap, period_long, period_wide):
     """그룹 단위 집계 (스냅샷=도달률, 기간합=거부/순증감)."""
@@ -285,9 +291,10 @@ def group_snapshot(grp, snap, period_long, period_wide):
     act = s["act"].sum()
     act_push = s["act_push"].sum()
     tot_push = s["tot_push"].sum()
-    # 채널별 증감(=신규추가−기존이탈, 기간 누적)
+    # 채널별 증감(=신규추가−기존이탈, 기간 누적) / 채널별 기존이탈
     chnet = {ch: pl[pl["channel"] == ch]["new"].sum() - pl[pl["channel"] == ch]["out"].sum()
              for ch in CHANNELS}
+    chout = {ch: pl[pl["channel"] == ch]["out"].sum() for ch in CHANNELS}
     return {
         "act": act,
         "act_push": act_push,
@@ -299,6 +306,7 @@ def group_snapshot(grp, snap, period_long, period_wide):
         "new": pl["new"].sum(),
         "net": pl["new"].sum() - pl["out"].sum(),
         "chnet": chnet,
+        "chout": chout,
         "out_trend": trend_word(pw.groupby("date")["out_all"].sum())[0],
     }
 
@@ -306,13 +314,15 @@ def group_snapshot(grp, snap, period_long, period_wide):
 # ════════════════════════════════════════════════════════════
 # 0. 핵심 진단
 # ════════════════════════════════════════════════════════════
-section("핵심 진단", f"기간 {d0} ~ {d1} ({n_days}일) · 도달률은 최근일({last_day.date()}) 스냅샷 기준",
+section("핵심 진단 — VIP · 앱푸시(DAU 채널) 기준",
+        f"기간 {d0} ~ {d1} ({n_days}일) · 도달률=최근일({last_day.date()}) 스냅샷 · 모든 수치 VIP 전용",
         anchor="sec-core")
 
-if "VIP" in sel_groups:
-    vip = group_snapshot("VIP", fw_last, fl, fw)
-    share = (vip["unreach"] / vip["act_push"] * 100) if vip["act_push"] else 0
+vip = group_snapshot("VIP", fw_d_last, fl_d, fw_d)   # 등급 필터와 무관하게 항상 VIP 전체
+if vip["act_push"]:
+    share = vip["unreach"] / vip["act_push"] * 100
     push_net = vip["chnet"].get("PUSH", 0)
+    push_out = vip["chout"].get("PUSH", 0)
     kind = "warn" if (vip["reach"] < 50 or push_net < 0) else ""
     insight(
         f"VIP 퍼널: 전체유효회원 {fnum(vip['act'])} → <b>수신동의 {vip['consent']:.1f}%</b>({fnum(vip['act_push'])}) "
@@ -323,16 +333,15 @@ if "VIP" in sel_groups:
         f"(SMS {fsigned(vip['chnet'].get('SMS',0))} · EMAIL {fsigned(vip['chnet'].get('EMAIL',0))})",
         kind)
 
-c1, c2, c3, c4, c5 = st.columns(5)
-push_reach_all = (fw_last["tot_push"].sum() / fw_last["act_push"].sum() * 100) if fw_last["act_push"].sum() else 0
-consent_all = (fw_last["act_push"].sum() / fw_last["act"].sum() * 100) if fw_last["act"].sum() else 0
-with c1: metric_card("타겟팅가능율(도달률)", f"{push_reach_all:.1f}%", f"수신동의율 {consent_all:.1f}% → 타겟팅가능")
-with c2: metric_card("앱 미보유/삭제", fnum(fw_last["unreach_push"].sum()), "수신동의 − 타겟팅가능(PUSH)")
-with c3: metric_card("타겟팅가능_PUSH", fnum(fw_last["tot_push"].sum()), f"수신동의 {fnum(fw_last['act_push'].sum())}")
-with c4: metric_card("기간 기존이탈(전채널)", fnum(fl["out"].sum()), f"일평균 {fnum(fl['out'].sum()/n_days)}")
-net_all = fl["new"].sum() - fl["out"].sum()
-with c5: metric_card("순증감(신규−거부)", fsigned(net_all),
-                     "구독자 순증가" if net_all >= 0 else "구독자 순감소")
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1: metric_card("VIP 푸시 도달률", f"{vip['reach']:.1f}%", f"수신동의율 {vip['consent']:.1f}% → 타겟팅가능")
+    with c2: metric_card("VIP 앱 미보유/삭제", fnum(vip["unreach"]), f"수신동의의 {share:.0f}% · 푸시 발송 불가")
+    with c3: metric_card("VIP 타겟팅가능_PUSH", fnum(vip["tot_push"]), f"수신동의 {fnum(vip['act_push'])}")
+    with c4: metric_card("VIP 기간 PUSH 이탈", fnum(push_out), f"일평균 {fnum(push_out / n_days)}")
+    with c5: metric_card("VIP PUSH 증감", fsigned(push_net),
+                         "푸시 구독 순증" if push_net >= 0 else "푸시 구독 순감")
+else:
+    st.info("VIP 데이터가 없습니다. 사이드바 그룹 필터에 VIP를 포함해 주세요.")
 
 # ════════════════════════════════════════════════════════════
 # 0.5 장기 추세 (전체·등급무관) — 별도 히스토리 데이터(25.1.1~)
@@ -408,10 +417,10 @@ if LT is not None:
 # ════════════════════════════════════════════════════════════
 # 1. 그룹 비교 (VIP vs 일반)
 # ════════════════════════════════════════════════════════════
-section("그룹 비교 — VIP vs 일반", "도달률=최근일 스냅샷 · 거부/순증감=기간 합계", anchor="sec-group")
-gcols = st.columns(len(sel_groups))
-for col, grp in zip(gcols, sel_groups):
-    gs = group_snapshot(grp, fw_last, fl, fw)
+section("그룹 비교 — VIP vs 일반", "VIP 중심, 일반은 대조용 · 등급 필터와 무관하게 항상 표시", anchor="sec-group")
+gcols = st.columns(2)
+for col, grp in zip(gcols, ["VIP", "일반"]):
+    gs = group_snapshot(grp, fw_d_last, fl_d, fw_d)
     share = (gs["unreach"] / gs["act_push"] * 100) if gs["act_push"] else 0
     cn = gs["chnet"]
     with col:
@@ -427,7 +436,7 @@ for col, grp in zip(gcols, sel_groups):
             f'</div>', unsafe_allow_html=True)
 
 # 그룹별 도달률 일별 추이
-grp_daily = (fw.groupby(["date", "group"]).agg(tp=("tot_push", "sum"), ap=("act_push", "sum")).reset_index())
+grp_daily = (fw_d.groupby(["date", "group"]).agg(tp=("tot_push", "sum"), ap=("act_push", "sum")).reset_index())
 grp_daily["reach"] = np.where(grp_daily["ap"] > 0, grp_daily["tp"] / grp_daily["ap"] * 100, 0)
 figr = px.line(grp_daily, x="date", y="reach", color="group", markers=True,
                color_discrete_map=GROUP_COLOR, labels={"reach": "앱푸시 도달률(%)", "date": "일자", "group": "그룹"})
