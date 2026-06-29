@@ -169,11 +169,11 @@ def section(title, hint="", anchor=None):
 # 사이드바 분석 메뉴 항목 (anchor, 라벨)
 MENU = [
     ("sec-core", "🔑 핵심 진단"),
-    ("sec-trend", "📈 장기 추세 (전체)"),
     ("sec-group", "👥 그룹 비교 (VIP vs 일반)"),
     ("sec-reach", "📲 앱푸시 도달 진단"),
     ("sec-optout", "🚫 수신거부 분석"),
     ("sec-within", "🏅 그룹 내 등급별 인사이트"),
+    ("sec-trend", "📈 장기 추세 (전체)"),
     ("sec-table", "📋 상세 데이터"),
 ]
 
@@ -344,77 +344,6 @@ else:
     st.info("VIP 데이터가 없습니다. 사이드바 그룹 필터에 VIP를 포함해 주세요.")
 
 # ════════════════════════════════════════════════════════════
-# 0.5 장기 추세 (전체·등급무관) — 별도 히스토리 데이터(25.1.1~)
-# ════════════════════════════════════════════════════════════
-LT = load_longterm()
-if LT is not None:
-    section("장기 추세 (전체·등급무관)", "25.1.1~26.6.25 일별 · 전체회원 기준(등급 구분 불가) · VIP는 절대 도달률↑이나 동일 하락 압력",
-            anchor="sec-trend")
-    # 이상치(특정일 풀 리카운트 등 급등/급락) 제외 — 롤링 중앙값 대비 과대 편차 날짜 NaN 처리
-    raw_act = lt_series(LT, "MEMBERSHIP", "전체유효회원")
-    raw_tp = lt_series(LT, "MEMBERSHIP", "타겟팅가능")
-    act_s = drop_outliers(raw_act)
-    tp_s = drop_outliers(raw_tp)
-    reach_s = (tp_s / act_s * 100).dropna()
-    excl = sorted(set(raw_tp.index[raw_tp.notna() & tp_s.isna()]) |
-                  set(raw_act.index[raw_act.notna() & act_s.isna()]))
-    excl_txt = ("제외된 날: " + ", ".join(d.strftime("%Y-%m-%d") for d in excl[:5]) +
-                (f" 외 {len(excl)-5}일" if len(excl) > 5 else "")) if excl else "제외된 이상치 없음"
-    if len(reach_s) > 1:
-        r0, r1 = reach_s.iloc[0], reach_s.iloc[-1]
-        a0, a1 = act_s.dropna().iloc[0], act_s.dropna().iloc[-1]
-        t0, t1 = tp_s.dropna().iloc[0], tp_s.dropna().iloc[-1]
-        insight(
-            f"전체 <b>푸시 도달률 {r0:.1f}% → {r1:.1f}%</b>로 지속 하락. 같은 기간 전체유효회원은 "
-            f"{fnum(a0)} → {fnum(a1)} (<b>+{(a1/a0-1)*100:.0f}%</b>) 늘었지만 푸시 타겟팅가능 모수는 "
-            f"{fnum(t0)} → {fnum(t1)}로 정체 — 신규 유입이 앱 설치로 이어지지 않아 "
-            f"<b>상대 도달률이 구조적으로 하락</b>합니다. DAU 역신장의 매크로 배경.", "warn")
-
-    # 회원 증가 vs 푸시 도달률 (이중축)
-    figt = go.Figure()
-    # 막대(전체유효회원)는 기본 축(배경), 도달률 선은 오버레이 축(y2)에 둬서 막대 위로 렌더
-    figt.add_bar(x=act_s.index, y=act_s.values, name="전체유효회원",
-                 marker_color="#dbe3ef", marker_line_width=0, opacity=0.65)
-    figt.add_scatter(x=reach_s.index, y=reach_s.values, name="푸시 도달률(%)", yaxis="y2",
-                     mode="lines", line=dict(color="#C44E52", width=3), connectgaps=True)
-    figt.update_layout(height=340, margin=dict(t=10, b=10), hovermode="x unified", legend_title_text="",
-                       yaxis=dict(title="전체유효회원"),
-                       yaxis2=dict(title="푸시 도달률(%)", overlaying="y", side="right", showgrid=False))
-    plot(figt, "회원수는 ↑, 푸시 도달률은 ↓")
-    st.caption(f"※ 풀 리카운트 등 비정상적으로 튀는 날은 정확도를 위해 자동 제외(롤링 중앙값 대비 과대 편차). {excl_txt}")
-
-    tcol1, tcol2 = st.columns(2)
-    with tcol1:
-        # 채널별 타겟팅가능 모수 — 시작=100 지수화
-        idx_rows = []
-        for ch in CHANNELS:
-            s = drop_outliers(lt_series(LT, ch, "수신동의"))
-            base = s.dropna()
-            if len(base):
-                idx_rows.append(pd.DataFrame({"date": s.index, "idx": s.values / base.iloc[0] * 100, "채널": ch}))
-        if idx_rows:
-            idf = pd.concat(idx_rows)
-            figi = px.line(idf, x="date", y="idx", color="채널", color_discrete_map=CH_COLOR,
-                           labels={"idx": "지수(시작=100)", "date": "일자"})
-            figi.update_traces(connectgaps=True)
-            figi.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified", legend_title_text="")
-            plot(figi, "채널별 타겟팅가능 모수 (시작=100)")
-    with tcol2:
-        # 채널별 월별 증감(신규추가−기존이탈) — 이상치 제외 후 월 합산
-        net_rows = []
-        for ch in CHANNELS:
-            s = drop_outliers(lt_series(LT, ch, "증감"))
-            if len(s):
-                m = s.resample("MS").sum(min_count=1)
-                net_rows.append(pd.DataFrame({"month": m.index, "증감": m.values, "채널": ch}))
-        if net_rows:
-            ndf = pd.concat(net_rows).dropna(subset=["증감"])
-            fign = px.bar(ndf, x="month", y="증감", color="채널", barmode="group",
-                          color_discrete_map=CH_COLOR, labels={"month": "월", "증감": "월 증감"})
-            fign.update_layout(height=320, margin=dict(t=10, b=10), legend_title_text="")
-            plot(fign, "채널별 월 증감 (신규추가−기존이탈)")
-
-# ════════════════════════════════════════════════════════════
 # 1. 그룹 비교 (VIP vs 일반)
 # ════════════════════════════════════════════════════════════
 section("그룹 비교 — VIP vs 일반", "VIP 중심, 일반은 대조용 · 등급 필터와 무관하게 항상 표시", anchor="sec-group")
@@ -560,6 +489,77 @@ for grp in sel_groups:
     else:
         msg += " 모든 등급이 기간 중 구독자 순증가 상태입니다."
     insight(msg, "warn" if (snap["reach"].min() < 40 or neg_net) else "")
+
+# ════════════════════════════════════════════════════════════
+# 0.5 장기 추세 (전체·등급무관) — 별도 히스토리 데이터(25.1.1~)
+# ════════════════════════════════════════════════════════════
+LT = load_longterm()
+if LT is not None:
+    section("장기 추세 (전체·등급무관)", "25.1.1~26.6.25 일별 · 전체회원 기준(등급 구분 불가) · VIP는 절대 도달률↑이나 동일 하락 압력",
+            anchor="sec-trend")
+    # 이상치(특정일 풀 리카운트 등 급등/급락) 제외 — 롤링 중앙값 대비 과대 편차 날짜 NaN 처리
+    raw_act = lt_series(LT, "MEMBERSHIP", "전체유효회원")
+    raw_tp = lt_series(LT, "MEMBERSHIP", "타겟팅가능")
+    act_s = drop_outliers(raw_act)
+    tp_s = drop_outliers(raw_tp)
+    reach_s = (tp_s / act_s * 100).dropna()
+    excl = sorted(set(raw_tp.index[raw_tp.notna() & tp_s.isna()]) |
+                  set(raw_act.index[raw_act.notna() & act_s.isna()]))
+    excl_txt = ("제외된 날: " + ", ".join(d.strftime("%Y-%m-%d") for d in excl[:5]) +
+                (f" 외 {len(excl)-5}일" if len(excl) > 5 else "")) if excl else "제외된 이상치 없음"
+    if len(reach_s) > 1:
+        r0, r1 = reach_s.iloc[0], reach_s.iloc[-1]
+        a0, a1 = act_s.dropna().iloc[0], act_s.dropna().iloc[-1]
+        t0, t1 = tp_s.dropna().iloc[0], tp_s.dropna().iloc[-1]
+        insight(
+            f"전체 <b>푸시 도달률 {r0:.1f}% → {r1:.1f}%</b>로 지속 하락. 같은 기간 전체유효회원은 "
+            f"{fnum(a0)} → {fnum(a1)} (<b>+{(a1/a0-1)*100:.0f}%</b>) 늘었지만 푸시 타겟팅가능 모수는 "
+            f"{fnum(t0)} → {fnum(t1)}로 정체 — 신규 유입이 앱 설치로 이어지지 않아 "
+            f"<b>상대 도달률이 구조적으로 하락</b>합니다. DAU 역신장의 매크로 배경.", "warn")
+
+    # 회원 증가 vs 푸시 도달률 (이중축)
+    figt = go.Figure()
+    # 막대(전체유효회원)는 기본 축(배경), 도달률 선은 오버레이 축(y2)에 둬서 막대 위로 렌더
+    figt.add_bar(x=act_s.index, y=act_s.values, name="전체유효회원",
+                 marker_color="#dbe3ef", marker_line_width=0, opacity=0.65)
+    figt.add_scatter(x=reach_s.index, y=reach_s.values, name="푸시 도달률(%)", yaxis="y2",
+                     mode="lines", line=dict(color="#C44E52", width=3), connectgaps=True)
+    figt.update_layout(height=340, margin=dict(t=10, b=10), hovermode="x unified", legend_title_text="",
+                       yaxis=dict(title="전체유효회원"),
+                       yaxis2=dict(title="푸시 도달률(%)", overlaying="y", side="right", showgrid=False))
+    plot(figt, "회원수는 ↑, 푸시 도달률은 ↓")
+    st.caption(f"※ 풀 리카운트 등 비정상적으로 튀는 날은 정확도를 위해 자동 제외(롤링 중앙값 대비 과대 편차). {excl_txt}")
+
+    tcol1, tcol2 = st.columns(2)
+    with tcol1:
+        # 채널별 타겟팅가능 모수 — 시작=100 지수화
+        idx_rows = []
+        for ch in CHANNELS:
+            s = drop_outliers(lt_series(LT, ch, "수신동의"))
+            base = s.dropna()
+            if len(base):
+                idx_rows.append(pd.DataFrame({"date": s.index, "idx": s.values / base.iloc[0] * 100, "채널": ch}))
+        if idx_rows:
+            idf = pd.concat(idx_rows)
+            figi = px.line(idf, x="date", y="idx", color="채널", color_discrete_map=CH_COLOR,
+                           labels={"idx": "지수(시작=100)", "date": "일자"})
+            figi.update_traces(connectgaps=True)
+            figi.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified", legend_title_text="")
+            plot(figi, "채널별 타겟팅가능 모수 (시작=100)")
+    with tcol2:
+        # 채널별 월별 증감(신규추가−기존이탈) — 이상치 제외 후 월 합산
+        net_rows = []
+        for ch in CHANNELS:
+            s = drop_outliers(lt_series(LT, ch, "증감"))
+            if len(s):
+                m = s.resample("MS").sum(min_count=1)
+                net_rows.append(pd.DataFrame({"month": m.index, "증감": m.values, "채널": ch}))
+        if net_rows:
+            ndf = pd.concat(net_rows).dropna(subset=["증감"])
+            fign = px.bar(ndf, x="month", y="증감", color="채널", barmode="group",
+                          color_discrete_map=CH_COLOR, labels={"month": "월", "증감": "월 증감"})
+            fign.update_layout(height=320, margin=dict(t=10, b=10), legend_title_text="")
+            plot(fign, "채널별 월 증감 (신규추가−기존이탈)")
 
 # ════════════════════════════════════════════════════════════
 # 5. 상세 테이블
