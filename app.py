@@ -398,6 +398,23 @@ insight(
     f"{fnum(gp.loc[worst,'unreach'])}명). 등급 라벨 순서는 상위(SP)→하위(RD)이며, 막대의 빨강 영역이 클수록 "
     f"앱푸시로 닿지 못하는 모수가 큽니다 — DAU 회복을 위해 우선 공략할 구간입니다.")
 
+# VIP 앱 미보유/삭제 일별 추세 (이탈과 별개 누수) — 등급 필터 무관 VIP 전체
+vip_daily = (fw_d[fw_d["group"] == "VIP"].groupby("date")
+             .agg(unreach=("unreach_push", "sum"), ap=("act_push", "sum")).reset_index())
+if len(vip_daily) > 1:
+    vip_daily["pct"] = np.where(vip_daily["ap"] > 0, vip_daily["unreach"] / vip_daily["ap"] * 100, 0)
+    figv = go.Figure()
+    figv.add_bar(x=vip_daily["date"], y=vip_daily["unreach"], name="앱 미보유/삭제(명)",
+                 marker_color="#e7c3c3", marker_line_width=0, opacity=0.75)
+    figv.add_scatter(x=vip_daily["date"], y=vip_daily["pct"], name="수신동의 대비(%)", yaxis="y2",
+                     mode="lines+markers", line=dict(color="#8C3A3A", width=2.5))
+    figv.update_layout(height=300, margin=dict(t=10, b=10), hovermode="x unified", legend_title_text="",
+                       yaxis=dict(title="앱 미보유/삭제(명)"),
+                       yaxis2=dict(title="수신동의 대비(%)", overlaying="y", side="right", showgrid=False))
+    plot(figv, "VIP 앱 미보유/삭제 일별 추세")
+    st.caption("앱 미보유/삭제 = 수신동의 − 타겟팅가능(PUSH). 수신거부(이탈)와 다른 누수 — 동의는 유지하지만 "
+               "앱이 없어 못 닿는 모수. (VIP 등급 데이터는 6/15부터라 추세가 짧음)")
+
 # ════════════════════════════════════════════════════════════
 # 3. 수신거부 분석
 # ════════════════════════════════════════════════════════════
@@ -529,6 +546,27 @@ if LT is not None:
                        yaxis2=dict(title="푸시 도달률(%)", overlaying="y", side="right", showgrid=False))
     plot(figt, "회원수는 ↑, 푸시 도달률은 ↓")
     st.caption(f"※ 풀 리카운트 등 비정상적으로 튀는 날은 정확도를 위해 자동 제외(롤링 중앙값 대비 과대 편차). {excl_txt}")
+
+    # 앱 미보유/삭제(전체) 추세 = 수신동의 − 타겟팅가능 (이탈과 별개 누수)
+    consent_s = drop_outliers(lt_series(LT, "MEMBERSHIP", "수신동의"))
+    gap_s = (consent_s - tp_s).dropna()
+    gap_pct = (gap_s / consent_s * 100).dropna()
+    if len(gap_s) > 1:
+        g0, g1 = gap_s.iloc[0], gap_s.iloc[-1]
+        p0, p1 = gap_pct.iloc[0], gap_pct.iloc[-1]
+        insight(
+            f"<b>앱 미보유/삭제(전체)</b>는 {fnum(g0)} → <b>{fnum(g1)}</b> (<b>+{(g1/g0-1)*100:.0f}%</b>)로 증가, "
+            f"수신동의 대비 <b>{p0:.1f}% → {p1:.1f}%</b>. 이탈(수신거부)과 별개로 — 동의는 유지하지만 "
+            f"앱이 없어 푸시가 닿지 않는 모수가 계속 커지는 게 도달률 하락의 실제 동력입니다.")
+        figg = go.Figure()
+        figg.add_bar(x=gap_s.index, y=gap_s.values, name="앱 미보유/삭제(명)",
+                     marker_color="#e7c3c3", marker_line_width=0, opacity=0.7)
+        figg.add_scatter(x=gap_pct.index, y=gap_pct.values, name="수신동의 대비(%)", yaxis="y2",
+                         mode="lines", line=dict(color="#8C3A3A", width=3), connectgaps=True)
+        figg.update_layout(height=300, margin=dict(t=10, b=10), hovermode="x unified", legend_title_text="",
+                           yaxis=dict(title="앱 미보유/삭제(명)"),
+                           yaxis2=dict(title="수신동의 대비(%)", overlaying="y", side="right", showgrid=False))
+        plot(figg, "앱 미보유/삭제 추세 (전체) — 동의했지만 앱이 없어 못 닿는 모수")
 
     tcol1, tcol2 = st.columns(2)
     with tcol1:
