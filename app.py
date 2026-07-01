@@ -534,7 +534,7 @@ ch_o = fl.groupby("channel")["out"].sum()
 ch_n = fl.groupby("channel")["new"].sum()
 push_net2 = ch_n.get("PUSH", 0) - ch_o.get("PUSH", 0)
 insight([
-    f"DAU와 직결되는 건 <b>PUSH 증감({fsigned(push_net2)})</b> — SMS/EMAIL 순증은 앱 방문 기여가 적어 수신거부 방어 우선순위는 PUSH.",
+    f"앱 방문(DAU)에 관여하는 채널은 <b>PUSH</b>(증감 {fsigned(push_net2)}) — SMS/EMAIL 순증은 앱 방문 기여가 적어, 수신거부 방어 우선순위는 PUSH.",
     "등급별 '수신거부율'은 모수 작은 상위 등급에서 튀는 노이즈 → 방어 대상은 율이 아니라 <b>절대 이탈 건수(RD·BK·PP)</b> 기준으로 선정.",
 ])
 
@@ -702,8 +702,9 @@ if vip["act_push"]:
 
     insight([
         "병목은 '수신 동의'가 아니라 '<b>앱 보유</b>' — 동의는 98%+지만 실제 도달은 1/3 수준.",
-        "<b>앱 미보유/삭제 풀이 구조적으로 확대</b> → 발송량을 늘려도 도달 모수가 안 늘어 DAU 역신장으로 직결.",
-        "SMS/EMAIL은 순증하는데 <b>PUSH(앱 채널)만 순감</b> → DAU를 끄는 채널이 선택적으로 약화.",
+        "<b>앱 미보유/삭제 풀이 구조적으로 확대</b> → 앱 도달 가능 모수가 회원 증가를 못 따라가 정체 → <b>DAU가 나올 모수 자체를 제약</b>.",
+        "SMS/EMAIL은 순증하는데 <b>PUSH(앱 채널)만 순감</b> → 앱 방문을 유도하는 채널이 선택적으로 약화.",
+        "<span style='color:#888'>※ 단, 본 데이터엔 <b>DAU 실측이 없음</b>. '도달↔DAU'는 정합적 <b>가설</b>이며 인과 확증엔 DAU 조인 분석이 별도 필요.</span>",
     ], "warn", cap="⚠️ 핵심 문제 (Problem)")
 
     insight([
