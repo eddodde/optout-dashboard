@@ -50,9 +50,15 @@ st.markdown("""
         font-size: 14px; font-weight: 600; border: 1px solid #e3e9f2;
     }
     a.navlink:hover { background: #e3ecf8; color: #163E78; }
-    .navgroup { font-size: 11px; font-weight: 700; color: #8a94a6; letter-spacing: .03em;
-        margin: 12px 0 4px; text-transform: none; }
-    a.navlink.navsub { margin-left: 8px; font-size: 13px; padding: 6px 10px; }
+    details.navacc { margin: 4px 0; }
+    summary.navgroup { cursor: pointer; font-size: 12px; font-weight: 700; color: #55606f;
+        letter-spacing: .02em; padding: 7px 8px; border-radius: 6px; list-style: none;
+        user-select: none; background: #eef1f6; }
+    summary.navgroup::-webkit-details-marker { display: none; }
+    summary.navgroup:hover { background: #e3e9f2; color: #1a1a2e; }
+    summary.navgroup::before { content: "▸ "; color: #99a3b3; }
+    details[open] summary.navgroup::before { content: "▾ "; }
+    a.navlink.navsub { margin: 3px 0 3px 10px; font-size: 13px; padding: 6px 10px; }
     .insight {
         background: #eef4fb; border-left: 4px solid #4C72B0; border-radius: 8px;
         padding: 12px 16px; margin: 6px 0 14px 0; font-size: 14px; line-height: 1.6;
@@ -275,8 +281,10 @@ with st.sidebar:
     st.markdown("**📂 분석 메뉴**")
     _nav = ""
     for _glabel, _items in MENU:
-        _nav += f'<div class="navgroup">{_glabel}</div>'
-        _nav += "".join(f'<a href="#{a}" class="navlink navsub">{lbl}</a>' for a, lbl in _items)
+        _open = " open" if _glabel == "📊 현황 진단" else ""
+        _links = "".join(f'<a href="#{a}" class="navlink navsub">{lbl}</a>' for a, lbl in _items)
+        _nav += (f'<details class="navacc" name="navmenu"{_open}>'
+                 f'<summary class="navgroup">{_glabel}</summary>{_links}</details>')
     st.markdown(_nav, unsafe_allow_html=True)
     st.divider()
     st.caption("🔎 필터")
