@@ -50,6 +50,9 @@ st.markdown("""
         font-size: 14px; font-weight: 600; border: 1px solid #e3e9f2;
     }
     a.navlink:hover { background: #e3ecf8; color: #163E78; }
+    .navgroup { font-size: 11px; font-weight: 700; color: #8a94a6; letter-spacing: .03em;
+        margin: 12px 0 4px; text-transform: none; }
+    a.navlink.navsub { margin-left: 8px; font-size: 13px; padding: 6px 10px; }
     .insight {
         background: #eef4fb; border-left: 4px solid #4C72B0; border-radius: 8px;
         padding: 12px 16px; margin: 6px 0 14px 0; font-size: 14px; line-height: 1.6;
@@ -169,15 +172,24 @@ def section(title, hint="", anchor=None):
         st.markdown(f'<div class="hint">{hint}</div>', unsafe_allow_html=True)
 
 
-# 사이드바 분석 메뉴 항목 (anchor, 라벨)
+# 사이드바 분석 메뉴 — 논리 흐름별 그룹핑 (그룹라벨, [(anchor, 라벨), ...])
 MENU = [
-    ("sec-core", "🔑 핵심 진단"),
-    ("sec-group", "👥 그룹 비교 (VIP vs 일반)"),
-    ("sec-reach", "📲 앱푸시 도달 진단"),
-    ("sec-optout", "🚫 수신거부 분석"),
-    ("sec-within", "🏅 그룹 내 등급별 인사이트"),
-    ("sec-trend", "📈 장기 추세 (전체)"),
-    ("sec-table", "📋 상세 데이터"),
+    ("🎯 종합 요약", [
+        ("sec-core", "핵심 진단"),
+    ]),
+    ("📊 현황 진단", [
+        ("sec-group", "그룹 비교 (VIP vs 일반)"),
+        ("sec-reach", "앱푸시 도달 진단"),
+        ("sec-optout", "수신거부 분석"),
+        ("sec-within", "그룹 내 등급별"),
+        ("sec-trend", "장기 추세 (전체)"),
+    ]),
+    ("🧭 결론", [
+        ("sec-action", "인사이트 · 시사점 · 액션"),
+    ]),
+    ("📁 부록", [
+        ("sec-table", "상세 데이터"),
+    ]),
 ]
 
 
@@ -261,8 +273,11 @@ except Exception as e:
 with st.sidebar:
     st.divider()
     st.markdown("**📂 분석 메뉴**")
-    st.markdown("".join(f'<a href="#{a}" class="navlink">{lbl}</a>' for a, lbl in MENU),
-                unsafe_allow_html=True)
+    _nav = ""
+    for _glabel, _items in MENU:
+        _nav += f'<div class="navgroup">{_glabel}</div>'
+        _nav += "".join(f'<a href="#{a}" class="navlink navsub">{lbl}</a>' for a, lbl in _items)
+    st.markdown(_nav, unsafe_allow_html=True)
     st.divider()
     st.caption("🔎 필터")
     dmin, dmax = W["date"].min().date(), W["date"].max().date()
@@ -627,6 +642,61 @@ if LT is not None:
                           color_discrete_map=CH_COLOR, labels={"month": "월", "증감": "월 증감"})
             fign.update_layout(height=320, margin=dict(t=10, b=10), legend_title_text="")
             plot(fign, "채널별 월 증감 (신규추가−기존이탈)")
+
+# ════════════════════════════════════════════════════════════
+# 4.5 결론 — 인사이트·시사점·액션 (컨설팅식 종합)
+# ════════════════════════════════════════════════════════════
+section("인사이트 · 시사점 · 액션",
+        "현황 진단 → 핵심 문제 → 시사점 → 권고 액션 (VIP·앱푸시 기준 종합)", anchor="sec-action")
+
+if vip["act_push"]:
+    a_share = vip["unreach"] / vip["act_push"] * 100
+    a_pnet = vip["chnet"].get("PUSH", 0)
+    # 장기(전체) 요약 재계산
+    lt_reach_txt = lt_gap_txt = ""
+    if LT is not None:
+        _a = drop_outliers(lt_series(LT, "MEMBERSHIP", "전체유효회원"))
+        _tp = drop_outliers(lt_series(LT, "MEMBERSHIP", "타겟팅가능"))
+        _c = drop_outliers(lt_series(LT, "MEMBERSHIP", "수신동의"))
+        _reach = (_tp / _a * 100).dropna()
+        _gap = (_c - _tp).dropna()
+        _gp = (_gap / _c * 100).dropna()
+        _ad = _a.dropna()
+        if len(_reach) > 1 and len(_ad) > 1:
+            _mg = (_ad.iloc[-1] / _ad.iloc[0] - 1) * 100
+            lt_reach_txt = (f"전체 푸시 도달률 <b>{_reach.iloc[0]:.1f}%→{_reach.iloc[-1]:.1f}%</b> 하락, "
+                            f"회원 +{_mg:.0f}% 증가에도 타겟팅가능 정체")
+        if len(_gap) > 1:
+            lt_gap_txt = f"앱 미보유/삭제(전체) <b>{fnum(_gap.iloc[-1])}</b>(수신동의의 {_gp.iloc[-1]:.0f}%)로 확대"
+
+    insight([
+        f"VIP 수신동의는 <b>{vip['consent']:.1f}%</b>로 확보됐으나 실제 앱푸시 <b>타겟팅가능은 {vip['reach']:.1f}%</b>"
+        f"({fnum(vip['tot_push'])}/{fnum(vip['act_push'])})에 불과.",
+        f"동의자 중 <b>{fnum(vip['unreach'])}명({a_share:.0f}%)</b>이 앱 미보유/삭제 상태, "
+        f"VIP PUSH 증감 {fsigned(a_pnet)}(순{'감' if a_pnet < 0 else '증'}).",
+        (f"{lt_reach_txt} · {lt_gap_txt}." if lt_reach_txt else ""),
+    ], cap="📌 현황 진단 (As-Is)")
+
+    insight([
+        "병목은 '수신 동의'가 아니라 '<b>앱 보유</b>' — 동의는 98%+지만 실제 도달은 1/3 수준.",
+        "<b>앱 미보유/삭제 풀이 구조적으로 확대</b> → 발송량을 늘려도 도달 모수가 안 늘어 DAU 역신장으로 직결.",
+        "SMS/EMAIL은 순증하는데 <b>PUSH(앱 채널)만 순감</b> → DAU를 끄는 채널이 선택적으로 약화.",
+    ], "warn", cap="⚠️ 핵심 문제 (Problem)")
+
+    insight([
+        "마케팅 레버가 '발송량·동의 확보'에서 '<b>앱 보유·재설치</b>'로 이동해야 함 — 동의 확보형 캠페인은 한계.",
+        "수신거부 방어보다 <b>앱 미보유/삭제 풀(훨씬 큰 누수)의 재활성화</b>가 도달·DAU 개선 ROI가 큼.",
+        "신규 획득 KPI와 별개로 '<b>앱 설치·유지 전환</b>'을 독립 지표로 관리해야 도달 자산이 축적됨.",
+    ], cap="💡 인사이트 · 시사점 (So-What)")
+
+    insight([
+        f"<b>① 재설치 캠페인</b> — 앱 미보유 VIP <b>{fnum(vip['unreach'])}명</b> 대상 인센티브+딥링크 재설치 유도(도달률 최저 등급 우선).",
+        "<b>② 발송 최적화</b> — 발송 타겟에 '앱 보유' 필터 적용, 미보유 VIP엔 알림톡/카카오 등 대체 도달 병행.",
+        "<b>③ 구조 개선</b> — 신규 유입 → 앱 설치 전환율 제고(온보딩·설치 유도 강화).",
+        "<b>④ 지표화·모니터링</b> — 앱 보유 전환율·푸시 도달률을 주간 KPI로 추적, 하락 시 조기 대응.",
+    ], "ok", cap="✅ 권고 액션 (Action)")
+else:
+    st.info("VIP 데이터가 있어야 결론(인사이트·액션) 섹션이 생성됩니다.")
 
 # ════════════════════════════════════════════════════════════
 # 5. 상세 테이블
