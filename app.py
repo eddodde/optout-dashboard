@@ -184,7 +184,7 @@ MENU = [
         ("sec-core", "핵심 진단"),
     ]),
     ("📊 현황 진단", [
-        ("sec-group", "그룹 비교 (VIP vs 일반)"),
+        ("sec-group", "그룹 비교 (일반은 참고)"),
         ("sec-reach", "앱푸시 도달 진단"),
         ("sec-optout", "수신거부 분석"),
         ("sec-within", "그룹 내 등급별"),
@@ -380,7 +380,8 @@ else:
 # ════════════════════════════════════════════════════════════
 # 1. 그룹 비교 (VIP vs 일반)
 # ════════════════════════════════════════════════════════════
-section("그룹 비교 — VIP vs 일반", "VIP 중심, 일반은 대조용 · 등급 필터와 무관하게 항상 표시", anchor="sec-group")
+section("그룹 비교 — VIP (일반은 참고)",
+        "본 진단 목표는 VIP DAU · 일반은 범위 밖 참고용(별도 관제 대상)", anchor="sec-group")
 gcols = st.columns(2)
 gsnap = {}
 for col, grp in zip(gcols, ["VIP", "일반"]):
@@ -388,10 +389,11 @@ for col, grp in zip(gcols, ["VIP", "일반"]):
     gsnap[grp] = gs
     share = (gs["unreach"] / gs["act_push"] * 100) if gs["act_push"] else 0
     cn = gs["chnet"]
+    _ref = ' <span style="font-size:11px;color:#aaa">(참고·범위 밖)</span>' if grp == "일반" else ""
     with col:
         st.markdown(
             f'<div class="metric-card" style="border-left-color:{GROUP_COLOR[grp]}">'
-            f'<div class="metric-value" style="font-size:19px">{grp} '
+            f'<div class="metric-value" style="font-size:19px">{grp}{_ref} '
             f'<span style="font-size:13px;color:#888">({", ".join(GROUPS[grp])})</span></div>'
             f'<div class="metric-sub">유효회원 {fnum(gs["act"])} → 수신동의 <b>{gs["consent"]:.1f}%</b> '
             f'→ 타겟팅가능 <b>{gs["reach"]:.1f}%</b> ({fnum(gs["tot_push"])})</div>'
@@ -408,14 +410,15 @@ figr = px.line(grp_daily, x="date", y="reach", color="group", markers=True,
 figr.update_layout(height=320, margin=dict(t=20, b=10), hovermode="x unified", legend_title_text="")
 plot(figr, "그룹별 앱푸시 도달률 추이")
 
-if "VIP" in gsnap and "일반" in gsnap:
-    v, gen = gsnap["VIP"], gsnap["일반"]
-    vp, gpn = v["chnet"].get("PUSH", 0), gen["chnet"].get("PUSH", 0)
+if "VIP" in gsnap:
+    v = gsnap["VIP"]
+    vp = v["chnet"].get("PUSH", 0)
+    v_share = (v["unreach"] / v["act_push"] * 100) if v["act_push"] else 0
     insight([
-        f"VIP 도달률({v['reach']:.1f}%)이 일반({gen['reach']:.1f}%)보다 높지만 절대 미보유/삭제가 <b>{fnum(v['unreach'])}명</b> → 규모 자체가 커서 VIP 우선 공략의 실익이 큼.",
-        (f"VIP PUSH는 <b>{fsigned(vp)}</b>로 {'순감' if vp < 0 else '정체'}인데 일반은 {fsigned(gpn)} → 같은 푸시인데 VIP만 약화, VIP 전용 리텐션 대응 필요."
-         if vp < gpn or vp < 0 else
-         f"VIP·일반 PUSH 증감(VIP {fsigned(vp)} / 일반 {fsigned(gpn)}) 모두 점검 — 푸시 도달 모수 방어가 공통 과제."),
+        f"VIP는 앱 미보유/삭제 <b>{fnum(v['unreach'])}명(동의자의 {v_share:.0f}%)</b>이 도달을 막음 — "
+        f"본 진단의 목표는 <b>VIP DAU</b>이므로 판단·액션은 VIP 기준으로 한정.",
+        f"VIP PUSH <b>{fsigned(vp)}</b>({'순감' if vp < 0 else '정체'}) → VIP 전용 재설치·리텐션이 과제.",
+        "일반 그룹은 규모는 더 크지만 본 과제(VIP DAU) 범위 밖 — <b>참고용</b>이며 별도 관제 대상.",
     ])
 
 # ════════════════════════════════════════════════════════════
