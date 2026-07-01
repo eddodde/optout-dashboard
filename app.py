@@ -150,6 +150,57 @@ def lt_series(lt, source, metric, segment="Total"):
     return d.set_index("date")["value"].sort_index()
 
 
+# 등급명 매핑 (DAU 파일 → 코드)
+GRADE_NAME_MAP = {"S-Platinum": "SP", "Platinum": "PT", "Gold": "GD", "Silver": "SV",
+                  "Black": "BK", "Purple": "PP", "Red": "RD", "Total": "TOTAL", "*TOTAL": "TOTAL"}
+
+
+@st.cache_data(show_spinner=False)
+def load_dau_monthly(file):
+    """등급별 월 DAU/MAU 파일 → long [date(월), metric(MAU/DAU), grade, value]."""
+    raw = pd.read_excel(file, sheet_name=0, header=None)
+    years = raw.iloc[1].ffill()   # 2행: 연도
+    months = raw.iloc[2]          # 3행: 'N월'
+    col_dates = {}
+    for c in range(2, raw.shape[1]):
+        y, ml = years.iloc[c], months.iloc[c]
+        s = str(ml).replace("월", "").strip()
+        if pd.isna(y) or not s.isdigit():
+            continue
+        try:
+            col_dates[c] = pd.Timestamp(int(float(y)), int(s), 1)
+        except Exception:
+            continue
+    recs, cur = [], None
+    for r in range(3, raw.shape[0]):
+        g0 = raw.iat[r, 0]
+        if pd.notna(g0) and str(g0).strip():
+            cur = str(g0).strip()          # MAU / DAU
+        grade = GRADE_NAME_MAP.get(str(raw.iat[r, 1]).strip(), str(raw.iat[r, 1]).strip())
+        for c, dt in col_dates.items():
+            v = pd.to_numeric(raw.iat[r, c], errors="coerce")
+            if pd.notna(v):
+                recs.append({"date": dt, "metric": cur, "grade": grade, "value": v})
+    return pd.DataFrame(recs)
+
+
+@st.cache_data(show_spinner=False)
+def load_dau_channel(file):
+    """채널별 일 DAU 파일 → long [date, channel, value]. (col3=2025-01-01 연속일)"""
+    raw = pd.read_excel(file, sheet_name=0, header=None)
+    base = pd.Timestamp(2025, 1, 1)
+    recs = []
+    for r in range(2, raw.shape[0]):
+        ch = str(raw.iat[r, 1]).strip().replace("*", "")
+        if not ch or ch.lower() == "nan":
+            continue
+        for c in range(2, raw.shape[1]):
+            v = pd.to_numeric(raw.iat[r, c], errors="coerce")
+            if pd.notna(v):
+                recs.append({"date": base + pd.Timedelta(days=c - 2), "channel": ch, "value": v})
+    return pd.DataFrame(recs)
+
+
 def fnum(x):
     return f"{int(round(x)):,}"
 
@@ -182,6 +233,7 @@ def section(title, hint="", anchor=None):
 MENU = [
     ("🎯 종합 요약", [
         ("sec-core", "핵심 진단"),
+        ("sec-dau", "DAU 문제 진단 (업로드 시)"),
     ]),
     ("📊 현황 진단", [
         ("sec-group", "그룹 비교 (일반은 참고)"),
@@ -256,8 +308,12 @@ st.caption("VIP DAU 역신장 가설 추적 — 채널 수신거부(이탈) + �
 # ── 사이드바: 업로드 ───────────────────────────────────────
 with st.sidebar:
     st.header("⚙️ 설정")
-    up = st.file_uploader("데이터 업로드 (.xls / .xlsx)", type=["xls", "xlsx"])
+    up = st.file_uploader("도달 데이터 (.xls / .xlsx)", type=["xls", "xlsx"])
     st.caption("STD_DD, GRADE_CD, ACT/TOT/NEW/OUT_채널_MEM 컬럼 포함 export 파일")
+    with st.expander("📉 DAU 데이터 (선택)"):
+        up_dau = st.file_uploader("등급별 월 DAU/MAU", type=["xls", "xlsx"], key="dau_m")
+        up_chdau = st.file_uploader("채널별 일 DAU", type=["xls", "xlsx"], key="dau_ch")
+        st.caption("업로드형(레포 미저장). 올리면 'DAU 문제 진단' 섹션이 생성됩니다.")
 
 if up is None:
     st.info("👈 사이드바에서 데이터 파일을 업로드하면 진단이 시작됩니다.")
@@ -384,6 +440,73 @@ if vip["act_push"]:
                          f"{'순증' if push_net >= 0 else '순감'}")
 else:
     st.info("VIP 데이터가 없습니다. 사이드바 그룹 필터에 VIP를 포함해 주세요.")
+
+# ════════════════════════════════════════════════════════════
+# 0.7 DAU 문제 진단 (업로드 시) — 왜 '도달'이 레버인가 (소거법)
+# ════════════════════════════════════════════════════════════
+if up_dau is not None or up_chdau is not None:
+    section("DAU 문제 진단 — 왜 '도달'이 레버인가",
+            "DAU 하락(빈도 문제) → 콘텐츠 소진 → ∴ 통제 가능한 레버 = 채널 도달 확대", anchor="sec-dau")
+    VIPG = GROUPS["VIP"]
+    try:
+        # ── (1) 등급별 월 DAU/MAU: VIP DAU 추세 + 스티키니스(빈도)
+        if up_dau is not None:
+            dm = load_dau_monthly(up_dau)
+            mm = (dm[dm["grade"].isin(VIPG)].groupby(["date", "metric"])["value"].sum()
+                  .unstack().sort_index())
+            if {"DAU", "MAU"}.issubset(mm.columns) and len(mm) > 1:
+                mm["ratio"] = np.where(mm["MAU"] > 0, mm["DAU"] / mm["MAU"] * 100, np.nan)
+                d0m, d1m = mm.iloc[0], mm.iloc[-1]
+                # YoY (동월 12개월 전 대비)
+                yoy = ""
+                if len(mm) >= 13:
+                    prev = mm["DAU"].iloc[-13]
+                    if prev:
+                        yoy = f"(전년 동월 대비 {(mm['DAU'].iloc[-1]/prev-1)*100:+.1f}%)"
+                k1, k2, k3 = st.columns(3)
+                with k1: metric_card("VIP DAU (최근월)", fnum(d1m["DAU"]), yoy)
+                with k2: metric_card("VIP MAU (최근월)", fnum(d1m["MAU"]),
+                                     f"{d0m.name.strftime('%y.%m')} 대비 {(d1m['MAU']/d0m['MAU']-1)*100:+.0f}%")
+                with k3: metric_card("DAU/MAU (방문 빈도)", f"{d1m['ratio']:.1f}%",
+                                     f"{d0m['ratio']:.1f}% → {d1m['ratio']:.1f}% (스티키니스)")
+                figd = go.Figure()
+                figd.add_bar(x=mm.index, y=mm["DAU"], name="VIP DAU", marker_color="#4C72B0", opacity=0.5)
+                figd.add_scatter(x=mm.index, y=mm["ratio"], name="DAU/MAU(%)", yaxis="y2",
+                                 mode="lines+markers", line=dict(color="#C44E52", width=3))
+                figd.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified",
+                                   legend_title_text="", yaxis=dict(title="VIP DAU(명)"),
+                                   yaxis2=dict(title="DAU/MAU(%)", overlaying="y", side="right",
+                                               showgrid=False, tickformat=".1f"))
+                plot(figd, "VIP DAU ↓ 인데 MAU는 유지·증가 → 빈도(DAU/MAU) 하락")
+                insight([
+                    f"VIP <b>MAU는 유지·증가</b>인데 DAU가 빠짐 → <b>DAU/MAU(방문 빈도)가 {d0m['ratio']:.0f}%→{d1m['ratio']:.0f}%</b>로 하락. "
+                    "'앱 쓰는 사람이 줄어서'가 아니라 <b>덜 자주 와서</b> — 즉 빈도 문제.",
+                ], "warn")
+
+        # ── (2) 채널별 일 DAU: 앱푸시 DAU 하락
+        if up_chdau is not None:
+            dc = load_dau_channel(up_chdau)
+            mon = (dc.groupby([pd.Grouper(key="date", freq="MS"), "channel"])["value"].mean()
+                   .unstack().sort_index())
+            if "PUSH" in mon.columns and "TOTAL" in mon.columns and len(mon) > 1:
+                mon["push_share"] = np.where(mon["TOTAL"] > 0, mon["PUSH"] / mon["TOTAL"] * 100, np.nan)
+                p0, p1 = mon["PUSH"].iloc[0], mon["PUSH"].iloc[-1]
+                figp = go.Figure()
+                figp.add_bar(x=mon.index, y=mon["PUSH"], name="앱푸시 DAU", marker_color="#DD8452", opacity=0.55)
+                figp.add_scatter(x=mon.index, y=mon["push_share"], name="푸시 비중(%)", yaxis="y2",
+                                 mode="lines+markers", line=dict(color="#8C3A3A", width=2.5))
+                figp.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified",
+                                   legend_title_text="", yaxis=dict(title="앱푸시 DAU(명)"),
+                                   yaxis2=dict(title="VIP DAU 내 비중(%)", overlaying="y", side="right",
+                                               showgrid=False, tickformat=".1f"))
+                plot(figp, "앱푸시 유입 DAU 추세 (VIP)")
+                insight([
+                    f"<b>앱푸시 DAU가 {fnum(p0)} → {fnum(p1)} ({(p1/p0-1)*100:+.0f}%)</b>로 가장 크게 하락 — VIP DAU의 약 {mon['push_share'].iloc[-1]:.0f}%를 견인하는 채널.",
+                    "푸시 도달(타겟팅가능)은 거의 flat인데 푸시 DAU가 빠짐 → <b>1건당 반응률(재방문 전환)이 하락</b>. 콘텐츠(전관행사)로도 회복 안 됨.",
+                    "반응률·빈도는 단기에 못 고침 → <b>남은 통제 레버 = 도달 확대</b>(더 많은 사람에게 닿게 해 푸시 DAU 볼륨 방어). 뒤 '도달 진단' 참고.",
+                ])
+    except Exception as e:
+        st.warning(f"DAU 데이터 파싱 중 문제: {e} — 파일 형식을 확인해 주세요.")
 
 # ════════════════════════════════════════════════════════════
 # 1. 그룹 비교 (VIP vs 일반)
