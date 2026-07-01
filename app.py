@@ -217,7 +217,8 @@ def plot(fig, title=None):
         st.markdown(f'<div style="font-weight:700;font-size:15px;margin:10px 0 -6px">{title}</div>',
                     unsafe_allow_html=True)
     fig.update_layout(font=dict(family=KFONT))
-    fig.update_yaxes(tickformat=",")   # 축 숫자 k/M 금지 → #,##0(천단위 콤마)
+    # 축 숫자 k/M 금지 → #,##0(천단위 콤마). tickformat이 지정된 축은 그대로 존중.
+    fig.update_yaxes(exponentformat="none", separatethousands=True)
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -359,10 +360,17 @@ if vip["act_push"]:
     push_net = vip["chnet"].get("PUSH", 0)
     push_out = vip["chout"].get("PUSH", 0)
     kind = "warn" if (vip["reach"] < 50 or push_net < 0) else ""
+    push_year = push_net / n_days * 365
+    year_pct = abs(push_year) / vip["tot_push"] * 100 if vip["tot_push"] else 0
+    proj = (f"현 순감 속도(일평균 {fsigned(push_net / n_days)}명)면 <b>연 △{fnum(abs(push_year))}명</b>"
+            f"(현 타겟팅가능의 {year_pct:.0f}%)이 추가로 미도달 — 다만 즉효 레버는 신규 순감보다 "
+            f"<b>이미 미도달인 {fnum(vip['unreach'])}명 스톡</b>."
+            if push_net < 0 else "")
     insight([
         f"수신동의는 <b>{vip['consent']:.1f}%</b>로 이미 충분 — 병목은 동의가 아니라 <b>앱 보유</b>(타겟팅가능 {vip['reach']:.1f}%). 동의 확보형 캠페인은 효과 한계.",
         f"<b>{fnum(vip['unreach'])}명(동의자의 {share:.0f}%)</b>이 앱 미보유/삭제로 푸시 도달 불가 → 이 풀의 <b>재설치 전환</b>이 VIP DAU 회복의 최대 레버.",
         f"PUSH만 {'순감' if push_net < 0 else '정체'}({fsigned(push_net)})이고 SMS({fsigned(vip['chnet'].get('SMS',0))})·EMAIL({fsigned(vip['chnet'].get('EMAIL',0))})은 순증 → 앱 채널만 약화. 푸시 못 닿는 VIP엔 <b>알림톡/카카오 대체 도달</b> 병행.",
+        proj,
     ], kind)
 
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -418,14 +426,13 @@ if "VIP" in gsnap:
         f"VIP는 앱 미보유/삭제 <b>{fnum(v['unreach'])}명(동의자의 {v_share:.0f}%)</b>이 도달을 막음 — "
         f"본 진단의 목표는 <b>VIP DAU</b>이므로 판단·액션은 VIP 기준으로 한정.",
         f"VIP PUSH <b>{fsigned(vp)}</b>({'순감' if vp < 0 else '정체'}) → VIP 전용 재설치·리텐션이 과제.",
-        "일반 그룹은 규모는 더 크지만 본 과제(VIP DAU) 범위 밖 — <b>참고용</b>이며 별도 관제 대상.",
     ])
 
 # ════════════════════════════════════════════════════════════
 # 2. 앱푸시 도달률 & 앱 미보유/삭제 (DAU 핵심)
 # ════════════════════════════════════════════════════════════
-section("앱푸시 도달 진단 — 등급별", "최근일 스냅샷 · 막대=타겟팅가능 vs 미보유/삭제, 라인=도달률",
-        anchor="sec-reach")
+section(f"앱푸시 도달 진단 — 등급별 ({last_day.date()} 기준)",
+        "막대=타겟팅가능 vs 앱 미보유/삭제, 라인=도달률(타겟팅가능/수신동의)", anchor="sec-reach")
 gp = (fw_last.groupby("grade").agg(act_push=("act_push", "sum"), tot_push=("tot_push", "sum"),
                                    unreach=("unreach_push", "sum")).reindex(grade_order_sel))
 gp["reach"] = np.where(gp["act_push"] > 0, gp["tot_push"] / gp["act_push"] * 100, 0)
@@ -441,10 +448,13 @@ fig.update_layout(barmode="stack", height=400, margin=dict(t=20, b=10),
                   xaxis=dict(categoryorder="array", categoryarray=grade_order_sel))
 plot(fig)
 
-worst = gp["reach"].idxmin()
+gpv = gp.dropna(subset=["reach", "unreach"])
+top_vol = gpv["unreach"].idxmax()      # 절대 미보유 규모 최대 → 실질 우선순위
+best = gpv["reach"].idxmax()            # 도달률 가장 높은 등급
 insight([
-    f"도달률 최저 <b>{worst}</b>({gp.loc[worst,'reach']:.1f}%)에 미보유/삭제 <b>{fnum(gp.loc[worst,'unreach'])}명</b> 집중 → 재설치 캠페인 <b>1순위 타겟</b>.",
-    "막대 빨강(미보유)이 큰 등급은 발송해도 안 닿음 → 발송 타겟 선정 시 '<b>앱 보유</b>' 필터를 적용해 도달 효율 확보.",
+    f"재설치 <b>1순위는 {top_vol}</b> — 미보유/삭제 절대 규모가 <b>{fnum(gpv.loc[top_vol,'unreach'])}명</b>으로 최대(도달률 {gpv.loc[top_vol,'reach']:.0f}%). 규모·효율 모두 부합.",
+    f"주목할 점: 도달률이 가장 높은 등급 <b>{best}</b>조차 <b>{gpv.loc[best,'reach']:.0f}%</b> — 상위 등급도 절반 가까이 미도달. <b>등급 불문 앱 보유가 공통 병목</b>(단순히 하위 등급 문제가 아님).",
+    "발송 타겟에 '<b>앱 보유</b>' 필터 적용 → 미보유 등급엔 대체 채널로 전환해 '발송해도 안 닿는' 낭비 제거.",
 ])
 
 # VIP 앱 미보유/삭제 일별 추세 (이탈과 별개 누수) — 등급 필터 무관 VIP 전체
@@ -455,11 +465,12 @@ if len(vip_daily) > 1:
     figv = go.Figure()
     figv.add_bar(x=vip_daily["date"], y=vip_daily["unreach"], name="앱 미보유/삭제(명)",
                  marker_color="#e7c3c3", marker_line_width=0, opacity=0.75)
-    figv.add_scatter(x=vip_daily["date"], y=vip_daily["pct"], name="수신동의 대비(%)", yaxis="y2",
+    figv.add_scatter(x=vip_daily["date"], y=vip_daily["pct"], name="미보유 비율(동의 대비)", yaxis="y2",
                      mode="lines+markers", line=dict(color="#8C3A3A", width=2.5))
     figv.update_layout(height=300, margin=dict(t=10, b=10), hovermode="x unified", legend_title_text="",
                        yaxis=dict(title="앱 미보유/삭제(명)"),
-                       yaxis2=dict(title="수신동의 대비(%)", overlaying="y", side="right", showgrid=False))
+                       yaxis2=dict(title="미보유 비율(%)", overlaying="y", side="right",
+                                   showgrid=False, tickformat=".1f"))
     plot(figv, "VIP 앱 미보유/삭제 일별 추세")
     st.caption("앱 미보유/삭제 = 수신동의 − 타겟팅가능(PUSH). 수신거부(이탈)와 다른 누수 — 동의는 유지하지만 "
                "앱이 없어 못 닿는 모수. (VIP 등급 데이터는 6/15부터라 추세가 짧음)")
@@ -494,10 +505,11 @@ with cc2:
                   text=go_df["out"].map(lambda v: f"이탈 {int(v):,}"))
     figo.update_traces(textposition="outside", textfont_size=10, cliponaxis=False)
     figo.update_layout(height=350, margin=dict(t=10, b=10), coloraxis_showscale=False,
+                       yaxis=dict(tickformat=".1f"),
                        xaxis=dict(categoryorder="array", categoryarray=grade_order_sel))
     plot(figo, "등급별 수신거부율 (전채널)")
-    st.caption("※ 모수가 작은 상위 등급(SP·PT)은 이탈 몇 건만으로 율이 크게 튑니다. "
-               "막대 위 절대 이탈 건수를 함께 보세요 — 실제 이탈 물량은 RD·BK·PP가 큽니다.")
+    st.caption("수신거부율 = 기간 누적 이탈 ÷ 최근일 수신자수(선택 채널 합) × 100. "
+               "※ 모수 작은 상위 등급(SP·PT)은 이탈 몇 건에도 율이 튀니, 막대 위 절대 이탈 건수를 함께 보세요(실제 물량은 RD·BK·PP).")
 
 # 등급 × 채널 히트맵
 metric_choice = st.radio("히트맵 지표", ["수신거부 건수", "수신거부율(%)", "순증감"],
@@ -510,7 +522,7 @@ po, pt, pn = (p.reindex(index=grade_order_sel, columns=ch_order) for p in (po, p
 if metric_choice == "수신거부 건수":
     z, fmt, cs = po, ",.0f", "Reds"
 elif metric_choice == "수신거부율(%)":
-    z, fmt, cs = (po / pt.replace(0, np.nan) * 100).fillna(0), ".3f", "OrRd"
+    z, fmt, cs = (po / pt.replace(0, np.nan) * 100).fillna(0), ".1f", "OrRd"
 else:
     z, fmt, cs = (pn - po), ",.0f", "RdYlGn"
 figh = px.imshow(z, text_auto=fmt, aspect="auto", color_continuous_scale=cs,
@@ -701,10 +713,16 @@ if vip["act_push"]:
     ], cap="💡 인사이트 · 시사점 (So-What)")
 
     insight([
-        f"<b>① 재설치 캠페인</b> — 앱 미보유 VIP <b>{fnum(vip['unreach'])}명</b> 대상 인센티브+딥링크 재설치 유도(도달률 최저 등급 우선).",
-        "<b>② 발송 최적화</b> — 발송 타겟에 '앱 보유' 필터 적용, 미보유 VIP엔 알림톡/카카오 등 대체 도달 병행.",
-        "<b>③ 구조 개선</b> — 신규 유입 → 앱 설치 전환율 제고(온보딩·설치 유도 강화).",
-        "<b>④ 지표화·모니터링</b> — 앱 보유 전환율·푸시 도달률을 주간 KPI로 추적, 하락 시 조기 대응.",
+        f"<b>① 미보유 VIP 재설치 캠페인</b> — 대상 <b>{fnum(vip['unreach'])}명</b>(도달률 최저 등급부터). "
+        "알림톡·문자로 앱 딥링크 발송, VIP 전용 설치 인센티브(적립/쿠폰), 설치 시 즉시 혜택 노출로 첫 실행 유도.",
+        "<b>② 발송 최적화(낭비 제거)</b> — 발송 세그먼트에 '앱 보유' 플래그 필터 적용. "
+        "미보유 VIP는 푸시 대신 <b>알림톡/RCS/문자</b>로 자동 대체, 앱 보유자만 푸시 → 채널 비용·도달 효율 동시 개선.",
+        "<b>③ 신규→설치 전환 구조 개선</b> — 신규 회원 온보딩에 앱 설치 단계 삽입, "
+        "웹 방문자 대상 앱 설치 배너/스마트배너, 첫 구매 후 앱 전용 혜택으로 설치 전환율 제고.",
+        "<b>④ 지표화·조기경보</b> — '앱 보유 전환율·푸시 도달률'을 주간 KPI로 대시보드화, "
+        "도달률 하락·PUSH 순감이 임계치 넘으면 자동 알림 → 재설치 캠페인 트리거.",
+        "<span style='color:#888'>참고(업계 일반 전술, 특정 사례 아님): 앱 미설치 고객엔 웹푸시·카카오 채널로 대체 도달, "
+        "리타게팅 광고로 앱 재설치 유도, 딥링크로 설치 직후 이탈 방지 — 커머스 앱에서 널리 쓰이는 리인게이지먼트 패턴.</span>",
     ], "ok", cap="✅ 권고 액션 (Action)")
 else:
     st.info("VIP 데이터가 있어야 결론(인사이트·액션) 섹션이 생성됩니다.")
