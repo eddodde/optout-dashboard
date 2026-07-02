@@ -81,6 +81,14 @@ st.markdown("""
         border-radius: 4px; margin-left: 4px; }
     .logic .verdict { margin-top: 6px; font-size: 12.5px; }
     .logic .verdict.warn { color: #C44E52; font-weight: 600; }
+    /* 독립 검토 의견(외부 관점) */
+    .opinion { background: #fffaf0; border: 1px solid #f0d9a8; border-left: 4px solid #E8A33D;
+        border-radius: 8px; padding: 14px 18px; margin: 8px 0 14px; font-size: 14px; line-height: 1.7; }
+    .opinion .ohead { font-weight: 700; color: #8a5a00; margin-bottom: 8px; }
+    .opinion ol { margin: 0; padding-left: 20px; }
+    .opinion li { margin: 8px 0; }
+    .opinion .chk { color: #8a6d3b; font-size: 12.5px; }
+    .opinion b { color: #1a1a2e; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -963,6 +971,23 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 st.caption("출처: 「DAU 개선 방안」 Summ 1.0~3.0 · ※ 행동 트리거(D-1→실시간)·도달력 개선의 DAU 효과는 CRM 파일럿으로 실측 권장.")
+
+st.markdown("""
+<div class="opinion">
+  <div class="ohead">🔍 독립 검토 의견 (외부 관점) — 위 진단을 반박·보완</div>
+  <ol>
+    <li><b>문제 크기 재보정</b> — 전체 DAU도 −10%대 동반 하락(전 등급 기준), 동일 소스 비교상 VIP는 오히려 <b>덜 빠짐</b>.
+        하락이 VIP 고유가 아니라 시장·플랫폼 광범위일 가능성 → "VIP 로열티 붕괴"보다 <b>"시장 하락 속 VIP 방어"</b>가 더 정확·유리(임원 방어 근거).</li>
+    <li><b>빈도 하락 = 전부 충성층 이탈?</b> — VIP MAU +9.4%인데 하위 등급 MAU는 감소 → <b>등급 승급 유입(믹스)</b> 유력.
+        신규 편입 VIP가 저빈도면 빈도는 기계적으로 하락. <span class="chk">→ 신규 VIP vs 기존 VIP 빈도 분리 필요: win-back이냐 신규 온보딩이냐로 액션이 갈림. (현 결론은 암묵적으로 '기존층 이탈'만 가정)</span></li>
+    <li><b>인과 방향 점검</b> — '빈도↓→구매의도↓'가 아니라 <b>'구매의도↓(구색·가격 경쟁력)→빈도↓'</b>일 수 있음(직접 −12% / 광고 +8%가 방증).
+        MD 영역이라 CRM 통제 밖이나, <b>VIP 이탈 집중 카테고리를 태깅해 MD/기획에 리텐션 근거로 이관</b>은 CRM이 할 수 있는 역할.</li>
+    <li><b>지표 재검토</b> — 총 DAU는 광고로 저관여 트래픽 사는 유인이 됨. <b>VIP의 '구매 의도 있는 재방문'</b>을 보조지표로 병행.</li>
+    <li><b>실행 순서</b> — D-1→실시간은 고비용·미검증 → <b>기존 D-1로 타겟팅 정교화 A/B 선검증</b> 후 실시간 투자 결정(타이밍이 진짜 병목인지 값싸게 확인).</li>
+  </ol>
+  <div class="chk" style="margin-top:8px">종합: 방향(행동 트리거 + 도달력)은 CRM 범위 내에서 타당. 단 ① 문제 크기 과대평가 가능 ② 신규/기존 VIP 미분리 ③ 지표·투자순서 리스크 — <b>다음 급소 = 믹스(신규/기존 VIP) 분리.</b> (제3자 관점, 데이터 검증 필요)</div>
+</div>
+""", unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════
 # 4.5 결론 — 인사이트·시사점·액션 (컨설팅식 종합)
