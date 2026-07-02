@@ -465,6 +465,7 @@ if up_dau is not None or up_chdau is not None:
                     if prev:
                         yoy = f"(전년 동월 대비 {(mm['DAU'].iloc[-1]/prev-1)*100:+.1f}%)"
                         dau_sum["dau_yoy"] = (mm["DAU"].iloc[-1] / prev - 1) * 100
+                        dau_sum["yoy_basis"] = "LFMS 포함"
                 dau_sum.update(stick0=d0m["ratio"], stick1=d1m["ratio"], dau_now=d1m["DAU"],
                                mau_growth=(d1m["MAU"] / d0m["MAU"] - 1) * 100)
                 k1, k2, k3 = st.columns(3)
@@ -482,6 +483,8 @@ if up_dau is not None or up_chdau is not None:
                                    yaxis2=dict(title="DAU/MAU(%)", overlaying="y", side="right",
                                                showgrid=False, tickformat=".1f"))
                 plot(figd, "VIP DAU ↓ 인데 MAU는 유지·증가 → 빈도(DAU/MAU) 하락")
+                st.caption("※ 이 파일(등급별 월 DAU/MAU)은 LFMS(B2B혜택) 회원 포함 기준 — 전년비가 −5%대로 희석돼 보임. "
+                           "진성 VIP 전년비는 아래 채널별 DAU(LFMS 제외) 기준 −10%대를 사용.")
                 insight([
                     f"VIP <b>MAU는 유지·증가</b>인데 DAU가 빠짐 → <b>DAU/MAU(방문 빈도)가 {d0m['ratio']:.0f}%→{d1m['ratio']:.0f}%</b>로 하락. "
                     "'앱 쓰는 사람이 줄어서'가 아니라 <b>덜 자주 와서</b> — 즉 빈도 문제.",
@@ -497,6 +500,11 @@ if up_dau is not None or up_chdau is not None:
                 p0, p1 = mon["PUSH"].iloc[0], mon["PUSH"].iloc[-1]
                 dau_sum.update(push_chg=(p1 / p0 - 1) * 100 if p0 else 0,
                                push_share=mon["push_share"].iloc[-1])
+                # 채널 파일은 LFMS(B2B혜택) 제외 = 진성 VIP 기준 → YoY/기준 DAU를 이 파일로 우선(월별 파일은 LFMS 포함이라 희석)
+                if len(mon) >= 13 and mon["TOTAL"].iloc[-13]:
+                    dau_sum["dau_yoy"] = (mon["TOTAL"].iloc[-1] / mon["TOTAL"].iloc[-13] - 1) * 100
+                    dau_sum["dau_now"] = mon["TOTAL"].iloc[-1]
+                    dau_sum["yoy_basis"] = "LFMS 제외"
                 figp = go.Figure()
                 figp.add_bar(x=mon.index, y=mon["PUSH"], name="앱푸시 DAU", marker_color="#DD8452", opacity=0.55)
                 figp.add_scatter(x=mon.index, y=mon["push_share"], name="푸시 비중(%)", yaxis="y2",
@@ -505,8 +513,13 @@ if up_dau is not None or up_chdau is not None:
                                    legend_title_text="", yaxis=dict(title="앱푸시 DAU(명)"),
                                    yaxis2=dict(title="VIP DAU 내 비중(%)", overlaying="y", side="right",
                                                showgrid=False, tickformat=".1f"))
-                plot(figp, "앱푸시 유입 DAU 추세 (VIP)")
+                plot(figp, "앱푸시 유입 DAU 추세 (VIP · LFMS 제외)")
+                yoy_line = ""
+                if "dau_yoy" in dau_sum:
+                    yoy_line = (f"<b>진성 VIP(LFMS 제외) DAU 전년비 {dau_sum['dau_yoy']:+.1f}%</b> — "
+                                "내부 관리지표와 동일 기준.")
                 insight([
+                    yoy_line,
                     f"<b>앱푸시 DAU가 {fnum(p0)} → {fnum(p1)} ({(p1/p0-1)*100:+.0f}%)</b>로 가장 크게 하락 — VIP DAU의 약 {mon['push_share'].iloc[-1]:.0f}%를 견인하는 채널.",
                     "푸시 도달(타겟팅가능)은 거의 flat인데 푸시 DAU가 빠짐 → <b>1건당 반응률(재방문 전환)이 하락</b>. 콘텐츠(전관행사)로도 회복 안 됨.",
                     "반응률·빈도는 단기에 못 고침 → <b>남은 통제 레버 = 도달 확대</b>(더 많은 사람에게 닿게 해 푸시 DAU 볼륨 방어). 뒤 '도달 진단' 참고.",
@@ -826,7 +839,7 @@ if vip["act_push"]:
     if has_dau:
         _p = []
         if "dau_yoy" in dau_sum:
-            _p.append(f"VIP DAU 전년비 <b>{dau_sum['dau_yoy']:+.0f}%</b>")
+            _p.append(f"VIP DAU 전년비 <b>{dau_sum['dau_yoy']:+.0f}%</b>({dau_sum.get('yoy_basis','')} 기준)")
         if "stick1" in dau_sum:
             _p.append(f"방문 빈도(DAU/MAU) <b>{dau_sum['stick0']:.0f}%→{dau_sum['stick1']:.0f}%</b>")
         if "push_chg" in dau_sum:
