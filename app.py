@@ -499,8 +499,17 @@ if up_dau is not None or up_chdau is not None:
     try:
         # ── (0) 채널별 일 DAU 먼저 파싱 (B2B 제외 = 진성 VIP, 내부 관리지표와 동일 기준)
         mon = None
+        anom_txt = ""
         if up_chdau is not None:
             dc = load_dau_channel(up_chdau)
+            # 중복집계 이상일 제외: TOTAL이 91일 롤링 중앙값의 1.6배 초과인 날(예: 25.9.23~10.30 전채널 2배 구간)
+            tot_d = dc[dc["channel"] == "TOTAL"].set_index("date")["value"].sort_index()
+            med_d = tot_d.rolling(91, center=True, min_periods=30).median()
+            bad_days = set(tot_d.index[(tot_d / med_d > 1.6).fillna(False)])
+            if bad_days:
+                dc = dc[~dc["date"].isin(bad_days)]
+                anom_txt = (f"※ 중복집계 의심일 {len(bad_days)}일 제외 "
+                            f"({min(bad_days).date()} ~ {max(bad_days).date()}, 전채널 동시 ~2배 급증)")
             mon = (dc.groupby([pd.Grouper(key="date", freq="MS"), "channel"])["value"].mean()
                    .unstack().sort_index())
             if "TOTAL" in mon.columns and len(mon) >= 13 and mon["TOTAL"].iloc[-13]:
@@ -526,13 +535,14 @@ if up_dau is not None or up_chdau is not None:
                 partial_m = mau_s.index[-1]
                 mau_s = mau_s.iloc[:-1]
                 dau_in_file = dau_in_file[dau_in_file.index != partial_m]
-            if len(dau_in_file):
-                dau_s, dau_basis = dau_in_file, "월별 파일 DAU"
+            # 채널 파일(이상일 제외 후)이 있으면 우선 — 월별 파일 DAU는 25.10 중복집계 오염 포함
+            if mon is not None and "TOTAL" in mon.columns:
+                dau_s, dau_basis = mon["TOTAL"], "채널 파일 DAU(B2B·이상일 제외)"
+            elif len(dau_in_file):
+                dau_s, dau_basis = dau_in_file, "월별 파일 DAU(※25.9~10 중복집계 오염 가능)"
                 if "dau_yoy" not in dau_sum and len(dau_in_file) >= 13 and dau_in_file.iloc[-13]:
                     dau_sum["dau_yoy"] = (dau_in_file.iloc[-1] / dau_in_file.iloc[-13] - 1) * 100
                     dau_sum["yoy_basis"] = "월별 파일"
-            elif mon is not None and "TOTAL" in mon.columns:
-                dau_s, dau_basis = mon["TOTAL"], "채널 파일 DAU(B2B 제외)"
             else:
                 dau_s, dau_basis = None, ""
 
@@ -594,6 +604,8 @@ if up_dau is not None or up_chdau is not None:
                                    yaxis2=dict(title="VIP DAU 내 비중(%)", overlaying="y", side="right",
                                                showgrid=False, tickformat=".1f"))
                 plot(figp, "앱푸시 유입 DAU 추세 (VIP · B2B 제외)")
+                if anom_txt:
+                    st.caption(anom_txt + " — 데이터팀 확인 권장")
                 yoy_line = ""
                 if "dau_yoy" in dau_sum:
                     yoy_line = (f"<b>VIP(B2B 제외) DAU 전년비 {dau_sum['dau_yoy']:+.1f}%</b> — "
