@@ -916,21 +916,48 @@ if vip["act_push"]:
         prev_dau = base_dau / (1 + dau_sum["dau_yoy"] / 100)
         yearly_loss = prev_dau - base_dau   # 전년 대비 감소 절대량(양수=감소)
 
-    m1, m2, m3 = st.columns(3)
+    new_dau = base_dau + dau_lift if base_dau else None
+    yoy_now = dau_sum.get("dau_yoy")            # 현 전년비 (%)
+    yoy_after = None
+    if yoy_now is not None and base_dau:
+        prev_dau_base = base_dau / (1 + yoy_now / 100)
+        yoy_after = (new_dau / prev_dau_base - 1) * 100
+
+    m1, m2, m3, m4 = st.columns(4)
     with m1: metric_card("재설치(앱 보유 전환)", fnum(reinstalled), f"미도달 {fnum(vip['unreach'])}명 × {conv:.1f}%")
-    with m2: metric_card("예상 DAU 리프트", f"+{fnum(dau_lift)}",
-                         (f"현 VIP DAU {fnum(base_dau)} 대비 +{dau_lift/base_dau*100:.1f}%" if base_dau
-                          else f"빈도 {stick:.0f}% 가정"))
+    with m2:
+        if new_dau:
+            metric_card("VIP DAU 변화", f"{fnum(base_dau)} → {fnum(new_dau)}",
+                        f"+{fnum(dau_lift)}명 (+{dau_lift/base_dau*100:.1f}%)")
+        else:
+            metric_card("예상 DAU 리프트", f"+{fnum(dau_lift)}", f"빈도 {stick:.0f}% 가정")
     with m3:
+        if yoy_after is not None:
+            metric_card("전년비 변화", f"{yoy_now:+.1f}% → {yoy_after:+.1f}%",
+                        "역신장 폭 축소" if yoy_after < 0 else "신장 전환")
+        else:
+            metric_card("전년비 변화", "—", "DAU 데이터 업로드 시 표시")
+    with m4:
         if yearly_loss and yearly_loss > 0:
-            metric_card("연간 DAU 감소 상쇄", f"{dau_lift/yearly_loss*100:.0f}%",
+            metric_card("연간 감소 상쇄", f"{dau_lift/yearly_loss*100:.0f}%",
                         f"전년비 감소 {fnum(yearly_loss)}명 대비")
         else:
-            metric_card("참고", "—", "DAU 데이터 업로드 시 상쇄율 표시")
+            metric_card("연간 감소 상쇄", "—", "DAU 데이터 업로드 시 표시")
+
+    # 역신장 0%(전년 수준 회복)에 필요한 전환율 역산
+    breakeven_txt = ""
+    if yoy_now is not None and yoy_now < 0 and base_dau and vip["unreach"] and stick > 0:
+        need_lift = prev_dau_base - base_dau
+        need_conv = need_lift / (vip["unreach"] * stick / 100) * 100
+        breakeven_txt = (f"<b>역신장 0%(전년 수준 회복)</b>까지 필요한 리프트는 +{fnum(need_lift)} — "
+                         f"빈도 {stick:.0f}% 가정 시 재설치 전환율 <b>{need_conv:.1f}%</b>가 손익분기점.")
 
     insight([
-        f"전환 <b>{conv:.1f}%</b>·빈도 <b>{stick:.0f}%</b> 가정 시 DAU <b>+{fnum(dau_lift)}</b>"
-        + (f" — 연간 감소분의 <b>{dau_lift/yearly_loss*100:.0f}%</b>를 상쇄." if yearly_loss and yearly_loss > 0 else "."),
+        (f"전환 <b>{conv:.1f}%</b>·빈도 <b>{stick:.0f}%</b> 가정 시 VIP DAU <b>{fnum(base_dau)} → {fnum(new_dau)}</b>"
+         f"(+{fnum(dau_lift)}), 전년비 <b>{yoy_now:+.1f}% → {yoy_after:+.1f}%</b>."
+         if yoy_after is not None else
+         f"전환 <b>{conv:.1f}%</b>·빈도 <b>{stick:.0f}%</b> 가정 시 DAU <b>+{fnum(dau_lift)}</b>."),
+        breakeven_txt,
         "재설치자는 <b>푸시 타겟팅가능에도 편입</b> → 이후 푸시 넛지로 빈도를 더 밀어올릴 여지(약한 선순환).",
         "<span style='color:#888'>※ 가정 기반 추정 — 재설치자의 실제 빈도·리텐션은 캠페인 후 실측으로 검증 필요.</span>",
     ])
