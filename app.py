@@ -444,6 +444,7 @@ else:
 # ════════════════════════════════════════════════════════════
 # 0.7 DAU 문제 진단 (업로드 시) — 왜 '도달'이 레버인가 (소거법)
 # ════════════════════════════════════════════════════════════
+dau_sum = {}   # 결론 섹션에서 재사용할 DAU 요약(있으면 채워짐)
 if up_dau is not None or up_chdau is not None:
     section("DAU 문제 진단 — 왜 '도달'이 레버인가",
             "DAU 하락(빈도 문제) → 콘텐츠 소진 → ∴ 통제 가능한 레버 = 채널 도달 확대", anchor="sec-dau")
@@ -463,6 +464,9 @@ if up_dau is not None or up_chdau is not None:
                     prev = mm["DAU"].iloc[-13]
                     if prev:
                         yoy = f"(전년 동월 대비 {(mm['DAU'].iloc[-1]/prev-1)*100:+.1f}%)"
+                        dau_sum["dau_yoy"] = (mm["DAU"].iloc[-1] / prev - 1) * 100
+                dau_sum.update(stick0=d0m["ratio"], stick1=d1m["ratio"], dau_now=d1m["DAU"],
+                               mau_growth=(d1m["MAU"] / d0m["MAU"] - 1) * 100)
                 k1, k2, k3 = st.columns(3)
                 with k1: metric_card("VIP DAU (최근월)", fnum(d1m["DAU"]), yoy)
                 with k2: metric_card("VIP MAU (최근월)", fnum(d1m["MAU"]),
@@ -491,6 +495,8 @@ if up_dau is not None or up_chdau is not None:
             if "PUSH" in mon.columns and "TOTAL" in mon.columns and len(mon) > 1:
                 mon["push_share"] = np.where(mon["TOTAL"] > 0, mon["PUSH"] / mon["TOTAL"] * 100, np.nan)
                 p0, p1 = mon["PUSH"].iloc[0], mon["PUSH"].iloc[-1]
+                dau_sum.update(push_chg=(p1 / p0 - 1) * 100 if p0 else 0,
+                               push_share=mon["push_share"].iloc[-1])
                 figp = go.Figure()
                 figp.add_bar(x=mon.index, y=mon["PUSH"], name="앱푸시 DAU", marker_color="#DD8452", opacity=0.55)
                 figp.add_scatter(x=mon.index, y=mon["push_share"], name="푸시 비중(%)", yaxis="y2",
@@ -815,26 +821,63 @@ if vip["act_push"]:
         if len(_gap) > 1:
             lt_gap_txt = f"앱 미보유/삭제(전체) <b>{fnum(_gap.iloc[-1])}</b>(수신동의의 {_gp.iloc[-1]:.0f}%)로 확대"
 
-    insight([
+    has_dau = bool(dau_sum)
+    asis = []
+    if has_dau:
+        _p = []
+        if "dau_yoy" in dau_sum:
+            _p.append(f"VIP DAU 전년비 <b>{dau_sum['dau_yoy']:+.0f}%</b>")
+        if "stick1" in dau_sum:
+            _p.append(f"방문 빈도(DAU/MAU) <b>{dau_sum['stick0']:.0f}%→{dau_sum['stick1']:.0f}%</b>")
+        if "push_chg" in dau_sum:
+            _p.append(f"앱푸시 DAU <b>{dau_sum['push_chg']:+.0f}%</b>(VIP DAU의 ~{dau_sum.get('push_share',0):.0f}%)")
+        if _p:
+            asis.append("실측 DAU — " + " · ".join(_p) + ".")
+    asis += [
         f"VIP 수신동의는 <b>{vip['consent']:.1f}%</b>로 확보됐으나 실제 앱푸시 <b>타겟팅가능은 {vip['reach']:.1f}%</b>"
         f"({fnum(vip['tot_push'])}/{fnum(vip['act_push'])})에 불과.",
         f"동의자 중 <b>{fnum(vip['unreach'])}명({a_share:.0f}%)</b>이 앱 미보유/삭제 상태, "
         f"VIP PUSH 증감 {fsigned(a_pnet)}(순{'감' if a_pnet < 0 else '증'}).",
         (f"{lt_reach_txt} · {lt_gap_txt}." if lt_reach_txt else ""),
-    ], cap="📌 현황 진단 (As-Is)")
+    ]
+    insight(asis, cap="📌 현황 진단 (As-Is)")
 
-    insight([
-        "병목은 '수신 동의'가 아니라 '<b>앱 보유</b>' — 동의는 98%+지만 실제 도달은 1/3 수준.",
-        "<b>앱 미보유/삭제 풀이 구조적으로 확대</b> → 앱 도달 가능 모수가 회원 증가를 못 따라가 정체 → <b>DAU가 나올 모수 자체를 제약</b>.",
-        "SMS/EMAIL은 순증하는데 <b>PUSH(앱 채널)만 순감</b> → 앱 방문을 유도하는 채널이 선택적으로 약화.",
-        "<span style='color:#888'>※ 단, 본 데이터엔 <b>DAU 실측이 없음</b>. '도달↔DAU'는 정합적 <b>가설</b>이며 인과 확증엔 DAU 조인 분석이 별도 필요.</span>",
-    ], "warn", cap="⚠️ 핵심 문제 (Problem)")
+    if has_dau:
+        prob = []
+        if "stick1" in dau_sum:
+            prob.append(
+                f"DAU 하락의 실체는 <b>방문 빈도(DAU/MAU) 하락</b>({dau_sum['stick0']:.0f}%→{dau_sum['stick1']:.0f}%) — "
+                f"VIP MAU는 {dau_sum.get('mau_growth',0):+.0f}%로 <b>유지·증가</b>. '앱 쓰는 사람이 줄어서'(모수 축소)가 아님.")
+        if "push_chg" in dau_sum:
+            prob.append(
+                f"<b>앱푸시 DAU {dau_sum['push_chg']:+.0f}%</b>로 최대 하락(VIP DAU의 ~{dau_sum.get('push_share',0):.0f}% 견인). "
+                "푸시 도달(타겟팅가능)은 flat인데 DAU가 빠짐 → <b>1건당 반응률(재방문 전환) 하락</b>.")
+        prob += [
+            "콘텐츠 레버 소진 — 전관행사(최대 혜택)로도 회복 안 됨. 반응률·빈도는 단기 통제 어려움.",
+            "<span style='color:#888'>※ 도달 확대의 DAU 회복 효과는 <b>실행 후 검증 필요</b> — 반응률이 낮은 상태라 실효는 미보유 재설치·미도달 활성층 넛지에서 주로 발생.</span>",
+        ]
+    else:
+        prob = [
+            "병목은 '수신 동의'가 아니라 '<b>앱 보유</b>' — 동의는 98%+지만 실제 도달은 1/3 수준.",
+            "<b>앱 미보유/삭제 풀이 구조적으로 확대</b> → 앱 도달 가능 모수가 회원 증가를 못 따라가 정체.",
+            "SMS/EMAIL은 순증하는데 <b>PUSH(앱 채널)만 순감</b> → 앱 방문을 유도하는 채널이 선택적으로 약화.",
+            "<span style='color:#888'>※ 단, 본 데이터엔 <b>DAU 실측이 없음</b>. '도달↔DAU'는 정합적 <b>가설</b>이며 인과 확증엔 DAU 조인 분석이 별도 필요(사이드바에서 DAU 업로드 시 갱신).</span>",
+        ]
+    insight(prob, "warn", cap="⚠️ 핵심 문제 (Problem)")
 
-    insight([
-        "마케팅 레버가 '발송량·동의 확보'에서 '<b>앱 보유·재설치</b>'로 이동해야 함 — 동의 확보형 캠페인은 한계.",
-        "수신거부 방어보다 <b>앱 미보유/삭제 풀(훨씬 큰 누수)의 재활성화</b>가 도달·DAU 개선 ROI가 큼.",
-        "신규 획득 KPI와 별개로 '<b>앱 설치·유지 전환</b>'을 독립 지표로 관리해야 도달 자산이 축적됨.",
-    ], cap="💡 인사이트 · 시사점 (So-What)")
+    if has_dau:
+        sowhat = [
+            "빈도·반응률은 단기 개선이 어렵고 콘텐츠도 소진 → <b>통제 가능한 레버는 채널 도달 확대</b>(같은 메시지를 더 많은 사람에게).",
+            "도달 확대의 실효 경로 = ① 미보유 <b>재설치</b>(앱 자체를 되살림) + ② 활성인데 못 닿던 층 넛지.",
+            "신규 획득 KPI와 별개로 '<b>앱 보유·재방문 전환</b>'을 독립 지표로 관리.",
+        ]
+    else:
+        sowhat = [
+            "마케팅 레버가 '발송량·동의 확보'에서 '<b>앱 보유·재설치</b>'로 이동해야 함 — 동의 확보형 캠페인은 한계.",
+            "수신거부 방어보다 <b>앱 미보유/삭제 풀(훨씬 큰 누수)의 재활성화</b>가 도달 개선 ROI가 큼.",
+            "신규 획득 KPI와 별개로 '<b>앱 설치·유지 전환</b>'을 독립 지표로 관리해야 도달 자산이 축적됨.",
+        ]
+    insight(sowhat, cap="💡 인사이트 · 시사점 (So-What)")
 
     insight([
         f"<b>① 미보유 VIP 재설치 캠페인</b> — 대상 <b>{fnum(vip['unreach'])}명</b>(도달률 최저 등급부터). "
