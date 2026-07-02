@@ -891,6 +891,49 @@ if vip["act_push"]:
         "<span style='color:#888'>참고(업계 일반 전술, 특정 사례 아님): 앱 미설치 고객엔 웹푸시·카카오 채널로 대체 도달, "
         "리타게팅 광고로 앱 재설치 유도, 딥링크로 설치 직후 이탈 방지 — 커머스 앱에서 널리 쓰이는 리인게이지먼트 패턴.</span>",
     ], "ok", cap="✅ 권고 액션 (Action)")
+
+    # ── 액션 임팩트 시뮬레이션 — 재설치 전환 → DAU 리프트 ──
+    st.markdown('<div style="font-weight:700;font-size:15px;margin:16px 0 4px">🎛 액션 임팩트 시뮬레이션 '
+                '— 미도달 스톡을 깨우면 DAU가 얼마나 움직이나</div>', unsafe_allow_html=True)
+    st.caption(f"미도달(앱 미보유/삭제) VIP {fnum(vip['unreach'])}명 중 일부가 재설치해 앱 보유로 전환된다고 가정합니다.")
+
+    sc1, sc2 = st.columns(2)
+    with sc1:
+        conv = st.slider("재설치 전환율 (%)", 0.5, 10.0, 1.0, 0.5,
+                         help="미도달 스톡 중 캠페인으로 앱을 다시 설치·유지하는 비율")
+    with sc2:
+        stick_default = float(f"{dau_sum['stick1']:.0f}") if "stick1" in dau_sum else 29.0
+        stick = st.slider("재설치자 방문 빈도 가정 — DAU/MAU (%)", 5.0, 50.0,
+                          min(stick_default, 50.0) / 2, 1.0,
+                          help="한 번 이탈했던 층이라 VIP 평균(약 "
+                               f"{stick_default:.0f}%)보다 낮게 잡는 게 보수적입니다")
+
+    reinstalled = vip["unreach"] * conv / 100
+    dau_lift = reinstalled * stick / 100
+    base_dau = dau_sum.get("dau_now", 0)
+    yearly_loss = None
+    if "dau_yoy" in dau_sum and base_dau:
+        prev_dau = base_dau / (1 + dau_sum["dau_yoy"] / 100)
+        yearly_loss = prev_dau - base_dau   # 전년 대비 감소 절대량(양수=감소)
+
+    m1, m2, m3 = st.columns(3)
+    with m1: metric_card("재설치(앱 보유 전환)", fnum(reinstalled), f"미도달 {fnum(vip['unreach'])}명 × {conv:.1f}%")
+    with m2: metric_card("예상 DAU 리프트", f"+{fnum(dau_lift)}",
+                         (f"현 VIP DAU {fnum(base_dau)} 대비 +{dau_lift/base_dau*100:.1f}%" if base_dau
+                          else f"빈도 {stick:.0f}% 가정"))
+    with m3:
+        if yearly_loss and yearly_loss > 0:
+            metric_card("연간 DAU 감소 상쇄", f"{dau_lift/yearly_loss*100:.0f}%",
+                        f"전년비 감소 {fnum(yearly_loss)}명 대비")
+        else:
+            metric_card("참고", "—", "DAU 데이터 업로드 시 상쇄율 표시")
+
+    insight([
+        f"전환 <b>{conv:.1f}%</b>·빈도 <b>{stick:.0f}%</b> 가정 시 DAU <b>+{fnum(dau_lift)}</b>"
+        + (f" — 연간 감소분의 <b>{dau_lift/yearly_loss*100:.0f}%</b>를 상쇄." if yearly_loss and yearly_loss > 0 else "."),
+        "재설치자는 <b>푸시 타겟팅가능에도 편입</b> → 이후 푸시 넛지로 빈도를 더 밀어올릴 여지(약한 선순환).",
+        "<span style='color:#888'>※ 가정 기반 추정 — 재설치자의 실제 빈도·리텐션은 캠페인 후 실측으로 검증 필요.</span>",
+    ])
 else:
     st.info("VIP 데이터가 있어야 결론(인사이트·액션) 섹션이 생성됩니다.")
 
