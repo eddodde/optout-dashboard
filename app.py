@@ -157,10 +157,57 @@ GRADE_NAME_MAP = {"S-Platinum": "SP", "Platinum": "PT", "Gold": "GD", "Silver": 
 
 @st.cache_data(show_spinner=False)
 def load_dau_monthly(file):
-    """등급별 월 DAU/MAU 파일 → long [date(월), metric(MAU/DAU), grade, value]."""
+    """등급별 월 파일 → long [date(월), metric(MAU/DAU), grade, value].
+    두 포맷 자동 인식: ① 구형(MAU/DAU 블록, LFMS 포함) ② 신형 UV(B2B 제외, 2020~, UV→MAU)."""
     raw = pd.read_excel(file, sheet_name=0, header=None)
-    years = raw.iloc[1].ffill()   # 2행: 연도
-    months = raw.iloc[2]          # 3행: 'N월'
+
+    # ③ 간이 포맷: A열 '구분' + DAU/MAU 행, 월 컬럼 (VIP 합계, B2B 제외)
+    if (raw.iloc[:2, 0].astype(str).str.strip() == "구분").any():
+        years = raw.iloc[0].ffill()
+        months = raw.iloc[1]
+        col_dates = {}
+        for c in range(1, raw.shape[1]):
+            s = str(months.iloc[c]).replace("월", "").strip()
+            try:
+                yi = int(float(str(years.iloc[c]).replace("년", "").strip()))
+            except (ValueError, TypeError):
+                continue
+            if s.isdigit():
+                col_dates[c] = pd.Timestamp(yi, int(s), 1)
+        recs = []
+        for r in range(2, raw.shape[0]):
+            met = str(raw.iat[r, 0]).strip().upper()
+            if met not in ("DAU", "MAU"):
+                continue
+            for c, dt in col_dates.items():
+                v = pd.to_numeric(raw.iat[r, c], errors="coerce")
+                if pd.notna(v):
+                    recs.append({"date": dt, "metric": met, "grade": "VIP", "value": v})
+        return pd.DataFrame(recs)
+
+    is_uv = raw.iloc[:3].astype(str).apply(lambda s: s.str.contains("회원구분상세")).any().any()
+
+    if is_uv:  # 신형: 1행=연도('2020년'), 2행=월 라벨, 등급=4열째, 지표=UV(→MAU)
+        years = raw.iloc[0].astype(str).str.replace("년", "", regex=False).ffill()
+        months = raw.iloc[1]
+        col_dates = {}
+        for c in range(4, raw.shape[1]):
+            s = str(months.iloc[c]).replace("월", "").strip()
+            ys = str(years.iloc[c]).replace(".0", "").strip()
+            if s.isdigit() and ys.isdigit():
+                col_dates[c] = pd.Timestamp(int(ys), int(s), 1)
+        recs = []
+        for r in range(2, raw.shape[0]):
+            grade = GRADE_NAME_MAP.get(str(raw.iat[r, 3]).strip(), str(raw.iat[r, 3]).strip())
+            for c, dt in col_dates.items():
+                v = pd.to_numeric(raw.iat[r, c], errors="coerce")
+                if pd.notna(v):
+                    recs.append({"date": dt, "metric": "MAU", "grade": grade, "value": v})
+        return pd.DataFrame(recs)
+
+    # 구형
+    years = raw.iloc[1].ffill()
+    months = raw.iloc[2]
     col_dates = {}
     for c in range(2, raw.shape[1]):
         y, ml = years.iloc[c], months.iloc[c]
@@ -311,7 +358,7 @@ with st.sidebar:
     up = st.file_uploader("도달 데이터 (.xls / .xlsx)", type=["xls", "xlsx"])
     st.caption("STD_DD, GRADE_CD, ACT/TOT/NEW/OUT_채널_MEM 컬럼 포함 export 파일")
     with st.expander("📉 DAU 데이터 (선택)"):
-        up_dau = st.file_uploader("등급별 월 DAU/MAU", type=["xls", "xlsx"], key="dau_m")
+        up_dau = st.file_uploader("등급별 월 MAU(UV) 또는 DAU/MAU", type=["xls", "xlsx"], key="dau_m")
         up_chdau = st.file_uploader("채널별 일 DAU", type=["xls", "xlsx"], key="dau_ch")
         st.caption("업로드형(레포 미저장). 올리면 'DAU 문제 진단' 섹션이 생성됩니다.")
 
@@ -450,61 +497,94 @@ if up_dau is not None or up_chdau is not None:
             "DAU 하락(빈도 문제) → 콘텐츠 소진 → ∴ 통제 가능한 레버 = 채널 도달 확대", anchor="sec-dau")
     VIPG = GROUPS["VIP"]
     try:
-        # ── (1) 등급별 월 DAU/MAU: VIP DAU 추세 + 스티키니스(빈도)
-        if up_dau is not None:
-            dm = load_dau_monthly(up_dau)
-            mm = (dm[dm["grade"].isin(VIPG)].groupby(["date", "metric"])["value"].sum()
-                  .unstack().sort_index())
-            if {"DAU", "MAU"}.issubset(mm.columns) and len(mm) > 1:
-                mm["ratio"] = np.where(mm["MAU"] > 0, mm["DAU"] / mm["MAU"] * 100, np.nan)
-                d0m, d1m = mm.iloc[0], mm.iloc[-1]
-                # YoY (동월 12개월 전 대비)
-                yoy = ""
-                if len(mm) >= 13:
-                    prev = mm["DAU"].iloc[-13]
-                    if prev:
-                        yoy = f"(전년 동월 대비 {(mm['DAU'].iloc[-1]/prev-1)*100:+.1f}%)"
-                        dau_sum["dau_yoy"] = (mm["DAU"].iloc[-1] / prev - 1) * 100
-                        dau_sum["yoy_basis"] = "LFMS 포함"
-                dau_sum.update(stick0=d0m["ratio"], stick1=d1m["ratio"], dau_now=d1m["DAU"],
-                               mau_growth=(d1m["MAU"] / d0m["MAU"] - 1) * 100)
-                k1, k2, k3 = st.columns(3)
-                with k1: metric_card("VIP DAU (최근월)", fnum(d1m["DAU"]), yoy)
-                with k2: metric_card("VIP MAU (최근월)", fnum(d1m["MAU"]),
-                                     f"{d0m.name.strftime('%y.%m')} 대비 {(d1m['MAU']/d0m['MAU']-1)*100:+.0f}%")
-                with k3: metric_card("DAU/MAU (방문 빈도)", f"{d1m['ratio']:.1f}%",
-                                     f"{d0m['ratio']:.1f}% → {d1m['ratio']:.1f}% (스티키니스)")
-                figd = go.Figure()
-                figd.add_bar(x=mm.index, y=mm["DAU"], name="VIP DAU", marker_color="#4C72B0", opacity=0.5)
-                figd.add_scatter(x=mm.index, y=mm["ratio"], name="DAU/MAU(%)", yaxis="y2",
-                                 mode="lines+markers", line=dict(color="#C44E52", width=3))
-                figd.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified",
-                                   legend_title_text="", yaxis=dict(title="VIP DAU(명)"),
-                                   yaxis2=dict(title="DAU/MAU(%)", overlaying="y", side="right",
-                                               showgrid=False, tickformat=".1f"))
-                plot(figd, "VIP DAU ↓ 인데 MAU는 유지·증가 → 빈도(DAU/MAU) 하락")
-                st.caption("※ 이 파일(등급별 월 DAU/MAU)은 LFMS(B2B혜택) 회원 포함 기준 — 전년비가 −5%대로 희석돼 보임. "
-                           "진성 VIP 전년비는 아래 채널별 DAU(LFMS 제외) 기준 −10%대를 사용.")
-                insight([
-                    f"VIP <b>MAU는 유지·증가</b>인데 DAU가 빠짐 → <b>DAU/MAU(방문 빈도)가 {d0m['ratio']:.0f}%→{d1m['ratio']:.0f}%</b>로 하락. "
-                    "'앱 쓰는 사람이 줄어서'가 아니라 <b>덜 자주 와서</b> — 즉 빈도 문제.",
-                ], "warn")
-
-        # ── (2) 채널별 일 DAU: 앱푸시 DAU 하락
+        # ── (0) 채널별 일 DAU 먼저 파싱 (B2B 제외 = 진성 VIP, 내부 관리지표와 동일 기준)
+        mon = None
         if up_chdau is not None:
             dc = load_dau_channel(up_chdau)
             mon = (dc.groupby([pd.Grouper(key="date", freq="MS"), "channel"])["value"].mean()
                    .unstack().sort_index())
+            if "TOTAL" in mon.columns and len(mon) >= 13 and mon["TOTAL"].iloc[-13]:
+                dau_sum["dau_yoy"] = (mon["TOTAL"].iloc[-1] / mon["TOTAL"].iloc[-13] - 1) * 100
+                dau_sum["dau_now"] = mon["TOTAL"].iloc[-1]
+                dau_sum["yoy_basis"] = "B2B 제외"
+
+        # ── (1) 등급별 월 MAU(±DAU): VIP 추세 + 빈도(DAU/MAU)
+        if up_dau is not None:
+            dm = load_dau_monthly(up_dau)   # 간이(VIP합계)/UV(등급별 MAU)/구형(MAU+DAU) 자동 인식
+
+            def vip_series(metric):
+                d = dm[dm["metric"] == metric]
+                g = d[d["grade"].isin(VIPG)]         # 등급별 파일이면 SP~BK 합산
+                if g.empty:
+                    g = d[d["grade"] == "VIP"]        # VIP 합계 행만 있는 간이 포맷
+                return g.groupby("date")["value"].sum().sort_index()
+
+            mau_s = vip_series("MAU")
+            dau_in_file = vip_series("DAU")
+            # 집계 중인 말단 부분월 제거(월초 1~2일치) — MAU 급락으로 감지, DAU도 같은 달 제거
+            if len(mau_s) >= 2 and mau_s.iloc[-1] < 0.6 * mau_s.iloc[-2]:
+                partial_m = mau_s.index[-1]
+                mau_s = mau_s.iloc[:-1]
+                dau_in_file = dau_in_file[dau_in_file.index != partial_m]
+            if len(dau_in_file):
+                dau_s, dau_basis = dau_in_file, "월별 파일 DAU"
+                if "dau_yoy" not in dau_sum and len(dau_in_file) >= 13 and dau_in_file.iloc[-13]:
+                    dau_sum["dau_yoy"] = (dau_in_file.iloc[-1] / dau_in_file.iloc[-13] - 1) * 100
+                    dau_sum["yoy_basis"] = "월별 파일"
+            elif mon is not None and "TOTAL" in mon.columns:
+                dau_s, dau_basis = mon["TOTAL"], "채널 파일 DAU(B2B 제외)"
+            else:
+                dau_s, dau_basis = None, ""
+
+            if len(mau_s) > 1:
+                both = pd.concat([mau_s.rename("MAU")] +
+                                 ([dau_s.rename("DAU")] if dau_s is not None else []), axis=1)
+                ov = both.dropna()
+                if dau_s is not None and len(ov) > 1:
+                    ov = ov.assign(ratio=np.where(ov["MAU"] > 0, ov["DAU"] / ov["MAU"] * 100, np.nan))
+                    d0m, d1m = ov.iloc[0], ov.iloc[-1]
+                    dau_sum.update(stick0=d0m["ratio"], stick1=d1m["ratio"])
+                    if "dau_now" not in dau_sum:
+                        dau_sum["dau_now"] = d1m["DAU"]
+                    mau_yoy = ((mau_s.iloc[-1] / mau_s.iloc[-13] - 1) * 100
+                               if len(mau_s) >= 13 and mau_s.iloc[-13] else None)
+                    dau_sum["mau_growth"] = mau_yoy if mau_yoy is not None else (mau_s.iloc[-1] / mau_s.iloc[0] - 1) * 100
+                    k1, k2, k3 = st.columns(3)
+                    with k1: metric_card("VIP DAU (최근월)", fnum(d1m["DAU"]),
+                                         (f"전년비 {dau_sum['dau_yoy']:+.1f}% ({dau_sum.get('yoy_basis','')})"
+                                          if "dau_yoy" in dau_sum else dau_basis))
+                    with k2: metric_card("VIP MAU (최근월)", fnum(mau_s.iloc[-1]),
+                                         (f"전년비 {mau_yoy:+.1f}%" if mau_yoy is not None else "B2B 제외"))
+                    with k3: metric_card("DAU/MAU (방문 빈도)", f"{d1m['ratio']:.1f}%",
+                                         f"{d0m['ratio']:.1f}% → {d1m['ratio']:.1f}% (스티키니스)")
+                    figd = go.Figure()
+                    figd.add_bar(x=mau_s.index, y=mau_s.values, name="VIP MAU", marker_color="#c9d6e8", opacity=0.7)
+                    figd.add_scatter(x=ov.index, y=ov["ratio"], name="DAU/MAU(%)", yaxis="y2",
+                                     mode="lines+markers", line=dict(color="#C44E52", width=3))
+                    figd.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified",
+                                       legend_title_text="", yaxis=dict(title="VIP MAU(명)"),
+                                       yaxis2=dict(title="DAU/MAU(%)", overlaying="y", side="right",
+                                                   showgrid=False, tickformat=".1f"))
+                    plot(figd, "VIP MAU는 성장하는데 방문 빈도(DAU/MAU)는 하락")
+                    st.caption(f"MAU=월별 파일(B2B 제외) · DAU={dau_basis} · 빈도는 두 시계열이 겹치는 구간만 표시 · 집계 중인 부분월은 자동 제외")
+                    insight([
+                        f"VIP <b>MAU는 유지·증가</b>인데 DAU가 빠짐 → <b>DAU/MAU(방문 빈도)가 {d0m['ratio']:.0f}%→{d1m['ratio']:.0f}%</b>로 하락. "
+                        "'앱 쓰는 사람이 줄어서'가 아니라 <b>덜 자주 와서</b> — 즉 빈도 문제.",
+                    ], "warn")
+                else:
+                    figd = px.line(mau_s.reset_index(), x="date", y="value",
+                                   labels={"value": "VIP MAU(명)", "date": "월"})
+                    figd.update_layout(height=300, margin=dict(t=10, b=10), hovermode="x unified")
+                    plot(figd, "VIP MAU 장기 추세 (B2B 제외)")
+                    st.caption("빈도(DAU/MAU) 계산엔 채널별 DAU 파일도 함께 업로드하세요.")
+
+        # ── (2) 채널별 일 DAU: 앱푸시 DAU 하락
+        if mon is not None:
             if "PUSH" in mon.columns and "TOTAL" in mon.columns and len(mon) > 1:
                 mon["push_share"] = np.where(mon["TOTAL"] > 0, mon["PUSH"] / mon["TOTAL"] * 100, np.nan)
                 p0, p1 = mon["PUSH"].iloc[0], mon["PUSH"].iloc[-1]
                 dau_sum.update(push_chg=(p1 / p0 - 1) * 100 if p0 else 0,
                                push_share=mon["push_share"].iloc[-1])
-                # 채널 파일은 LFMS(B2B혜택) 제외 = 진성 VIP 기준 → YoY/기준 DAU를 이 파일로 우선(월별 파일은 LFMS 포함이라 희석)
-                if len(mon) >= 13 and mon["TOTAL"].iloc[-13]:
-                    dau_sum["dau_yoy"] = (mon["TOTAL"].iloc[-1] / mon["TOTAL"].iloc[-13] - 1) * 100
-                    dau_sum["dau_now"] = mon["TOTAL"].iloc[-1]
-                    dau_sum["yoy_basis"] = "LFMS 제외"
                 figp = go.Figure()
                 figp.add_bar(x=mon.index, y=mon["PUSH"], name="앱푸시 DAU", marker_color="#DD8452", opacity=0.55)
                 figp.add_scatter(x=mon.index, y=mon["push_share"], name="푸시 비중(%)", yaxis="y2",
@@ -513,10 +593,10 @@ if up_dau is not None or up_chdau is not None:
                                    legend_title_text="", yaxis=dict(title="앱푸시 DAU(명)"),
                                    yaxis2=dict(title="VIP DAU 내 비중(%)", overlaying="y", side="right",
                                                showgrid=False, tickformat=".1f"))
-                plot(figp, "앱푸시 유입 DAU 추세 (VIP · LFMS 제외)")
+                plot(figp, "앱푸시 유입 DAU 추세 (VIP · B2B 제외)")
                 yoy_line = ""
                 if "dau_yoy" in dau_sum:
-                    yoy_line = (f"<b>진성 VIP(LFMS 제외) DAU 전년비 {dau_sum['dau_yoy']:+.1f}%</b> — "
+                    yoy_line = (f"<b>VIP(B2B 제외) DAU 전년비 {dau_sum['dau_yoy']:+.1f}%</b> — "
                                 "내부 관리지표와 동일 기준.")
                 insight([
                     yoy_line,
