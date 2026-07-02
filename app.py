@@ -69,6 +69,18 @@ st.markdown("""
     .insight ul { margin: 0; padding-left: 20px; }
     .insight li { margin: 5px 0; }
     .insight .cap { font-size: 12px; font-weight: 700; color: #666; display: block; margin-bottom: 6px; }
+    /* 진단 논리(소거법) 사다리 */
+    .logic-step { display: flex; gap: 12px; margin: 0 0 8px; }
+    .logic-num { flex: 0 0 32px; height: 32px; border-radius: 50%; background: #4C72B0;
+        color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .logic-card { flex: 1; background: #f8f9fa; border-radius: 8px; padding: 10px 14px;
+        font-size: 14px; line-height: 1.65; border-left: 3px solid #4C72B0; }
+    .logic-card.ok { background: #eef7f0; border-left-color: #55A868; }
+    .logic-step.final .logic-num { background: #55A868; }
+    .logic .tag { background: #e3e9f2; color: #55606f; font-size: 11px; padding: 1px 6px;
+        border-radius: 4px; margin-left: 4px; }
+    .logic .verdict { margin-top: 6px; font-size: 12.5px; }
+    .logic .verdict.warn { color: #C44E52; font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -290,6 +302,7 @@ MENU = [
         ("sec-trend", "장기 추세 (전체)"),
     ]),
     ("🧭 결론", [
+        ("sec-logic", "진단 논리 (소거법→방향)"),
         ("sec-action", "인사이트 · 시사점 · 액션"),
     ]),
     ("📁 부록", [
@@ -502,14 +515,15 @@ if up_dau is not None or up_chdau is not None:
         anom_txt = ""
         if up_chdau is not None:
             dc = load_dau_channel(up_chdau)
-            # 중복집계 이상일 제외: TOTAL이 91일 롤링 중앙값의 1.6배 초과인 날(예: 25.9.23~10.30 전채널 2배 구간)
+            # 단기 급증 구간(대형행사 등) 제외: TOTAL이 91일 롤링 중앙값의 1.6배 초과인 날
+            # (예: 25.9.23~10.30 차수제 대형행사 — 평상시 추세·YoY 비교를 위해 제외, 양 연도 동일 규칙 적용)
             tot_d = dc[dc["channel"] == "TOTAL"].set_index("date")["value"].sort_index()
             med_d = tot_d.rolling(91, center=True, min_periods=30).median()
             bad_days = set(tot_d.index[(tot_d / med_d > 1.6).fillna(False)])
             if bad_days:
                 dc = dc[~dc["date"].isin(bad_days)]
-                anom_txt = (f"※ 중복집계 의심일 {len(bad_days)}일 제외 "
-                            f"({min(bad_days).date()} ~ {max(bad_days).date()}, 전채널 동시 ~2배 급증)")
+                anom_txt = (f"※ 대형행사 등 급증일 {len(bad_days)}일 제외 "
+                            f"({min(bad_days).date()} ~ {max(bad_days).date()}) — 평상시 추세 비교 기준")
             mon = (dc.groupby([pd.Grouper(key="date", freq="MS"), "channel"])["value"].mean()
                    .unstack().sort_index())
             if "TOTAL" in mon.columns and len(mon) >= 13 and mon["TOTAL"].iloc[-13]:
@@ -901,6 +915,54 @@ if LT is not None:
             plot(fign, "채널별 월 증감 (신규추가−기존이탈)")
 
 # ════════════════════════════════════════════════════════════
+# 4.4 진단 논리 — 소거법에서 최종 방향까지
+# ════════════════════════════════════════════════════════════
+section("진단 논리 — 소거법에서 방향까지",
+        "가설이 어떻게 검증·기각되며 최종 방향으로 좁혀졌는지 (summ 1.0~3.0)", anchor="sec-logic")
+st.markdown("""
+<div class="logic">
+  <div class="logic-step">
+    <div class="logic-num">1</div>
+    <div class="logic-card">
+      <b>초기 가설 — 도달 모수</b><span class="tag">summ 1.0</span><br>
+      앱 미보유/삭제(약 16.8만)로 <b>도달 가능 모수가 줄어</b> VIP DAU가 빠진다.
+      <div class="verdict warn">✕ DAU 데이터 확보 후 반증 — 모수(MAU)는 오히려 성장</div>
+    </div>
+  </div>
+  <div class="logic-step">
+    <div class="logic-num">2</div>
+    <div class="logic-card">
+      <b>재정의 — 빈도 문제</b><span class="tag">summ 2.0</span><br>
+      VIP MAU <b>+9.5%↑</b> 인데 DAU <b>−10%↓</b> → 방문 빈도(DAU/MAU) <b>27%→22%</b>.
+      재설치 시뮬 10% 전환도 손익분기 부근 = 방어일 뿐. 직접(자발) <b>−12%</b> vs 광고(유료) <b>+8%</b>
+      → <b>유료로 방어(로열티 착시)</b>.
+      <div class="verdict warn">✕ 모수·재설치는 DAU 1차 레버 아님</div>
+    </div>
+  </div>
+  <div class="logic-step">
+    <div class="logic-num">3</div>
+    <div class="logic-card">
+      <b>레버 소거</b><span class="tag">summ 3.0</span><br>
+      · 콘텐츠 혜택 깊이 → <b>소진</b> (전관행사 최대혜택으로도 회복 X)<br>
+      · 범용 스티키니스(출첵·데일리딜·행동점수) → <b>commoditized</b> (경쟁사 다 함, 차별화 X)
+      <div class="verdict warn">✕ 둘 다 탈락</div>
+    </div>
+  </div>
+  <div class="logic-step final">
+    <div class="logic-num">✓</div>
+    <div class="logic-card ok">
+      <b>남은 유일 레버 — 정밀 재참여 (정밀도 × 도달)</b><br>
+      "자발적으로 오게"가 성립 안 되는 경쟁 환경 → <b>더 정확하게 불러온다.</b><br>
+      ① <b>정밀도</b> — 행동데이터 <b>T-1(하루 전) → 당일</b> 개선 (오늘 행동을 오늘 넛지)<br>
+      ② <b>도달</b> — 앱 푸시 도달율 확대 (owned·저비용 파이프, 문자·광고 대비 비용↓)<br>
+      → <b>유료(광고·문자)로 산 DAU를 owned 정밀 푸시로 전환</b> (지속가능). 앞의 도달 진단 = 이 전환의 <b>전제조건(전달 용량)</b>.
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+st.caption("※ 정밀도(T-1→당일) 개선의 DAU 효과는 이 데이터로 미검증 — 파일럿으로 실측 권장.")
+
+# ════════════════════════════════════════════════════════════
 # 4.5 결론 — 인사이트·시사점·액션 (컨설팅식 종합)
 # ════════════════════════════════════════════════════════════
 section("인사이트 · 시사점 · 액션",
@@ -972,9 +1034,9 @@ if vip["act_push"]:
 
     if has_dau:
         sowhat = [
-            "빈도·반응률은 단기 개선이 어렵고 콘텐츠도 소진 → <b>통제 가능한 레버는 채널 도달 확대</b>(같은 메시지를 더 많은 사람에게).",
-            "도달 확대의 실효 경로 = ① 미보유 <b>재설치</b>(앱 자체를 되살림) + ② 활성인데 못 닿던 층 넛지.",
-            "신규 획득 KPI와 별개로 '<b>앱 보유·재방문 전환</b>'을 독립 지표로 관리.",
+            "범용 스티키니스(출첵·데일리딜)는 commoditized·콘텐츠는 소진 → 차별화 레버는 <b>정밀 재참여(정밀도 × 도달)</b>.",
+            "<b>정밀도</b>: 행동데이터 T-1(하루전)→당일로 신선화해 '오늘 행동을 오늘' 넛지. <b>도달</b>: 앱 푸시 도달율이 그 전달 용량(문자·광고 대비 저비용).",
+            "지금 DAU는 <b>광고(유료)로 방어</b> 중 → owned 정밀 푸시로 전환해야 지속가능. 총 DAU 대신 <b>직접(자발) DAU·유료 의존도</b>를 건강 지표로.",
         ]
     else:
         sowhat = [
@@ -985,16 +1047,15 @@ if vip["act_push"]:
     insight(sowhat, cap="💡 인사이트 · 시사점 (So-What)")
 
     insight([
-        f"<b>① 미보유 VIP 재설치 캠페인</b> — 대상 <b>{fnum(vip['unreach'])}명</b>(도달률 최저 등급부터). "
-        "알림톡·문자로 앱 딥링크 발송, VIP 전용 설치 인센티브(적립/쿠폰), 설치 시 즉시 혜택 노출로 첫 실행 유도.",
-        "<b>② 발송 최적화(낭비 제거)</b> — 발송 세그먼트에 '앱 보유' 플래그 필터 적용. "
-        "미보유 VIP는 푸시 대신 <b>알림톡/RCS/문자</b>로 자동 대체, 앱 보유자만 푸시 → 채널 비용·도달 효율 동시 개선.",
-        "<b>③ 신규→설치 전환 구조 개선</b> — 신규 회원 온보딩에 앱 설치 단계 삽입, "
-        "웹 방문자 대상 앱 설치 배너/스마트배너, 첫 구매 후 앱 전용 혜택으로 설치 전환율 제고.",
-        "<b>④ 지표화·조기경보</b> — '앱 보유 전환율·푸시 도달률'을 주간 KPI로 대시보드화, "
-        "도달률 하락·PUSH 순감이 임계치 넘으면 자동 알림 → 재설치 캠페인 트리거.",
-        "<span style='color:#888'>참고(업계 일반 전술, 특정 사례 아님): 앱 미설치 고객엔 웹푸시·카카오 채널로 대체 도달, "
-        "리타게팅 광고로 앱 재설치 유도, 딥링크로 설치 직후 이탈 방지 — 커머스 앱에서 널리 쓰이는 리인게이지먼트 패턴.</span>",
+        "<b>① 정밀도 — 행동데이터 신선화(T-1 → 당일)</b> — '오늘 본 카테고리/찜/장바구니'를 당일 넛지로. "
+        "현재는 하루 전 기준이라 타이밍을 놓침. 이 latency 개선이 정밀 타겟팅의 전제.",
+        f"<b>② 도달 — 앱 푸시 도달율 확대</b> — 정밀 넛지의 전달 용량. 미도달 <b>{fnum(vip['unreach'])}명</b> 재설치 + 활성인데 못 닿던 층 커버. "
+        "owned 채널이라 문자·광고 대비 저비용.",
+        "<b>③ 유료 의존 축소 — 광고/문자로 산 DAU를 정밀 푸시로 전환</b> — 지속가능성·비용 개선. "
+        "<b>직접(자발) DAU·유료 의존도</b>를 건강 지표로 모니터링.",
+        "<b>④ 파일럿·검증</b> — 정밀도(T-1→당일) 개선의 DAU 효과는 미검증 → 소규모 파일럿으로 실측 후 확대.",
+        "<span style='color:#888'>참고(업계 일반 전술, 특정 사례 아님): 실시간 행동 트리거 푸시(재입고·가격인하·찜), 앱 미설치엔 웹푸시·카카오 대체 도달, "
+        "딥링크로 설치 직후 이탈 방지 — 커머스 리인게이지먼트 표준 패턴.</span>",
     ], "ok", cap="✅ 권고 액션 (Action)")
 
     # ── 액션 임팩트 시뮬레이션 — 재설치 전환 → DAU 리프트 ──
