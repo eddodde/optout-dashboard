@@ -1012,11 +1012,49 @@ st.markdown("""
     <li><b>인과 방향 점검</b> — '빈도↓→구매의도↓'가 아니라 <b>'구매의도↓(구색·가격 경쟁력)→빈도↓'</b>일 수 있음(직접 −12% / 광고 +8%가 방증).
         MD 영역이라 CRM 통제 밖이나, <b>VIP 이탈 집중 카테고리를 태깅해 MD/기획에 리텐션 근거로 이관</b>은 CRM이 할 수 있는 역할.</li>
     <li><b>지표 재검토</b> — 총 DAU는 광고로 저관여 트래픽 사는 유인이 됨. <b>VIP의 '구매 의도 있는 재방문'</b>을 보조지표로 병행.</li>
-    <li><b>실행 순서</b> — D-1→실시간은 고비용·미검증 → <b>기존 D-1로 타겟팅 정교화 A/B 선검증</b> 후 실시간 투자 결정(타이밍이 진짜 병목인지 값싸게 확인).</li>
+    <li><b>실행 순서</b> — D-1→실시간은 <b>적재 요청 시 착수 가능</b>하나 효과는 미검증 → <b>기존 D-1로 타겟팅 정교화 A/B 선검증</b> 후 확대(타이밍이 진짜 병목인지 값싸게 확인).</li>
   </ol>
   <div class="chk" style="margin-top:8px">종합: 방향(행동 트리거 + 도달력)은 CRM 범위 내에서 타당. 단 ① 문제 크기 과대평가 가능 ② 신규/기존 VIP 미분리 ③ 지표·투자순서 리스크 — <b>다음 급소 = 믹스(신규/기존 VIP) 분리.</b> (제3자 관점, 데이터 검증 필요)</div>
 </div>
 """, unsafe_allow_html=True)
+
+st.markdown('<div style="font-weight:700;font-size:15px;margin:14px 0 2px">🎛 CRM 레버 인벤토리 — 영향도(판단) × 착수 여부</div>',
+            unsafe_allow_html=True)
+st.markdown("""
+<svg width="100%" viewBox="0 0 680 510" role="img" style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif">
+<title>CRM 레버 영향도 × 착수여부 매트릭스</title>
+<line x1="352" y1="66" x2="352" y2="450" stroke="#B4B2A9" stroke-width="1"/>
+<line x1="66" y1="260" x2="636" y2="260" stroke="#B4B2A9" stroke-width="1"/>
+<text transform="rotate(-90 44 258)" x="44" y="258" text-anchor="middle" fill="#5F5E5A" font-size="11">← 낮음    영향도 (판단)    높음 →</text>
+<text x="210" y="474" text-anchor="middle" fill="#5F5E5A" font-size="11">미착수 · 부분</text>
+<text x="500" y="474" text-anchor="middle" fill="#5F5E5A" font-size="11">운영 중</text>
+<text x="352" y="496" text-anchor="middle" fill="#2C2C2A" font-size="12" font-weight="600">착수 여부</text>
+<text x="76" y="88" fill="#854F0B" font-size="12" font-weight="600">남은 프런티어 · 다음 액션</text>
+<text x="372" y="88" fill="#5F5E5A" font-size="12">이미 운영 중 · 여력 소진</text>
+<rect x="76" y="98" width="262" height="52" rx="6" fill="#FAC775" stroke="#854F0B" stroke-width="2"/>
+<text x="88" y="120" fill="#412402" font-size="13" font-weight="600">행동 시점 정밀도</text>
+<text x="88" y="139" fill="#633806" font-size="11">D-1 → 실시간 · 요청 시 착수 가능</text>
+<rect x="76" y="162" width="262" height="46" rx="6" fill="#FAEEDA" stroke="#BA7517" stroke-width="1"/>
+<text x="88" y="182" fill="#633806" font-size="13" font-weight="600">발송 관련성·피로도 재배분</text>
+<text x="88" y="199" fill="#854F0B" font-size="11">6회를 양이 아닌 질로</text>
+<rect x="372" y="98" width="260" height="44" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
+<text x="384" y="117" fill="#444441" font-size="13" font-weight="600">혜택·프로모션 (전관행사)</text>
+<text x="384" y="133" fill="#5F5E5A" font-size="11">최대치 · 소진</text>
+<rect x="372" y="150" width="260" height="44" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
+<text x="384" y="169" fill="#444441" font-size="13" font-weight="600">휴면·이탈 타겟 자동화</text>
+<text x="384" y="185" fill="#5F5E5A" font-size="11">상시 운영 중</text>
+<rect x="372" y="202" width="260" height="44" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
+<text x="384" y="221" fill="#444441" font-size="13" font-weight="600">채널 도달 (활성자 커버)</text>
+<text x="384" y="237" fill="#5F5E5A" font-size="11">활성엔 거의 도달</text>
+<rect x="76" y="292" width="262" height="46" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
+<text x="88" y="312" fill="#444441" font-size="13" font-weight="600">미보유 재설치</text>
+<text x="88" y="328" fill="#5F5E5A" font-size="11">부분 · 효과 바운드</text>
+<rect x="372" y="292" width="260" height="46" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
+<text x="384" y="312" fill="#444441" font-size="13" font-weight="600">발송량·빈도 (6회/일)</text>
+<text x="384" y="328" fill="#5F5E5A" font-size="11">포화 · 증량은 역효과</text>
+</svg>
+""", unsafe_allow_html=True)
+st.caption("※ 세로축 '영향도'는 데이터가 아닌 판단. 고영향 레버는 대부분 운영 중(여력 소진) → **미착수 프런티어(정밀도·관련성)**가 남은 통제 레버, 파일럿으로 실측.")
 
 # ════════════════════════════════════════════════════════════
 # 4.5 결론 — 인사이트·시사점·액션 (컨설팅식 종합)
