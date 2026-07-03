@@ -589,7 +589,9 @@ if up_dau is not None or up_chdau is not None:
                 if _gmode.startswith("Owned"):
                     ow = mon[[c for c in OWNED if c in mon.columns]].sum(axis=1)
                     pdd = mon[[c for c in PAID if c in mon.columns]].sum(axis=1)
-                    _series = [("Owned (자발·앱푸시·직접 등)", ow, "#DD8452"), ("Paid (광고·제휴)", pdd, "#8172B3")]
+                    _series = [("VIP 전체 DAU", mon["TOTAL"], "#4C72B0"),
+                               ("Owned (자발·앱푸시·직접 등)", ow, "#DD8452"),
+                               ("Paid (광고·제휴)", pdd, "#8172B3")]
                 else:
                     _cols = [("TOTAL", "VIP 전체", "#4C72B0"), ("PUSH", "앱푸시(owned)", "#DD8452"),
                              ("직접", "직접(자발)", "#55A868"), ("광고", "광고(유료)", "#8172B3")]
