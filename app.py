@@ -500,6 +500,11 @@ if up_dau is not None or up_chdau is not None:
                 dau_sum["dau_yoy"] = (mon["TOTAL"].iloc[-1] / mon["TOTAL"].iloc[-13] - 1) * 100
                 dau_sum["dau_now"] = mon["TOTAL"].iloc[-1]
                 dau_sum["yoy_basis"] = "B2B 제외"
+                dau_sum["yoy_total_now"] = mon["TOTAL"].iloc[-1]
+                dau_sum["yoy_total_prev"] = mon["TOTAL"].iloc[-13]
+                if "PUSH" in mon.columns:
+                    dau_sum["yoy_push_now"] = mon["PUSH"].iloc[-1]
+                    dau_sum["yoy_push_prev"] = mon["PUSH"].iloc[-13]
 
         # ── (1) 등급별 월 MAU(±DAU): VIP 추세 + 빈도(DAU/MAU)
         if up_dau is not None:
@@ -1097,8 +1102,33 @@ st.markdown("""
 st.caption("역신장 기여·개선 여력은 높음/중간/낮음 3단계 판단(데이터 참고). '매트릭스'=위 2×2 요소 · '사유/외생'=CRM 밖 요인. 실제 효과는 파일럿 실측.")
 insight([
     "매트릭스의 운영 중 레버(전관행사·발송량·휴면·도달)는 <b>이미 소진 → 개선 여력 낮음</b>. 여력이 남은 유일한 CRM 레버는 <b>행동 시점 정밀도(D-1→실시간)</b>.",
-    "역신장 기여가 가장 큰 <b>구매의도 약화</b>는 상품·기획 영역(CRM 여력 낮음) → CRM 몫은 <b>접점 개선으로 하락 방어</b>(반전 아님). 재설치 시 커버율은 아래 시뮬레이터.",
+    "역신장 기여가 가장 큰 <b>구매의도 약화</b>는 상품·기획 영역(CRM 여력 낮음) → CRM 몫은 <b>접점 개선으로 하락 방어</b>(반전 아님).",
 ])
+
+st.markdown('<div style="font-weight:700;font-size:15px;margin:16px 0 2px">🎛 시뮬레이션 ① — 앱푸시 레버(행동 시점 정밀도) 개선 시</div>',
+            unsafe_allow_html=True)
+if dau_sum.get("yoy_push_prev"):
+    _tp, _tn = dau_sum["yoy_total_prev"], dau_sum["yoy_total_now"]
+    _pp, _pn = dau_sum["yoy_push_prev"], dau_sum["yoy_push_now"]
+    _tdecl, _pdecl = _tp - _tn, _pp - _pn
+    _ceiling = _pdecl / _tdecl * 100 if _tdecl else 0
+    st.caption(f"정밀 발송으로 <b>앱푸시 DAU를 전년 대비 하락분({fnum(_pdecl)}명) 중 얼마나 되돌릴지</b> 가정 — 슬라이더 조정.")
+    rr = st.slider("앱푸시 DAU 회복률 (%)", 0, 100, 30, 5, key="push_sim",
+                   help=f"앱푸시가 역신장에서 차지하는 몫이 {_ceiling:.0f}% → 100% 회복해도 커버 상한은 {_ceiling:.0f}%")
+    _lift = _pdecl * rr / 100
+    _newdau = _tn + _lift
+    _nowyoy = (_tn / _tp - 1) * 100
+    _newyoy = (_newdau / _tp - 1) * 100
+    _cover = _lift / _tdecl * 100 if _tdecl else 0
+    s1, s2, s3 = st.columns(3)
+    with s1: metric_card("앱푸시 DAU 회복", f"+{fnum(_lift)}", f"하락분 {fnum(_pdecl)} 중 {rr}%")
+    with s2: metric_card("역신장 커버", f"{_cover:.0f}%", f"전체 하락 {fnum(_tdecl)} 대비")
+    with s3: metric_card("VIP DAU 전년비", f"{_nowyoy:+.1f}% → {_newyoy:+.1f}%",
+                         "역신장 폭 축소" if _newyoy > _nowyoy else "—")
+    st.caption(f"※ 커버 상한 {_ceiling:.0f}%(앱푸시 몫) — 완전 회복해도 그 이상 불가. 실제 회복폭은 파일럿 실측. "
+               "미보유 재설치 레버의 커버율은 결론 하단 '시뮬레이션 ②' 참조.")
+else:
+    st.caption("채널별 DAU 파일 업로드 시 시뮬레이션이 활성화됩니다.")
 
 # ════════════════════════════════════════════════════════════
 # 4.5 결론 — 인사이트·시사점·액션 (컨설팅식 종합)
@@ -1197,8 +1227,8 @@ if vip["act_push"]:
     ], "ok", cap="✅ 권고 액션 (Action)")
 
     # ── 액션 임팩트 시뮬레이션 — 재설치 전환 → DAU 리프트 ──
-    st.markdown('<div style="font-weight:700;font-size:15px;margin:16px 0 4px">🎛 액션 임팩트 시뮬레이션 '
-                '— 미도달 스톡을 깨우면 DAU가 얼마나 움직이나</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-weight:700;font-size:15px;margin:16px 0 4px">🎛 시뮬레이션 ② '
+                '— 미보유 재설치(도달) 레버 개선 시</div>', unsafe_allow_html=True)
     st.caption(f"미도달(앱 미보유/삭제) VIP {fnum(vip['unreach'])}명 중 일부가 재설치해 앱 보유로 전환된다고 가정합니다.")
 
     sc1, sc2 = st.columns(2)
