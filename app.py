@@ -1057,52 +1057,41 @@ st.markdown("""
 st.caption("주황 = 미착수·부분(남은 레버) · 회색 = 운영 중. 세로축 영향도는 판단(데이터 아님). "
            "운영 중 레버의 DAU 효과는 데이터상 제한적(전관행사 견인 △0.1%, 앱푸시 6회/일 포화) → 남은 착수 대상은 행동 시점 정밀도(현 D-1)·발송 관련성.")
 
-st.markdown('<div style="font-weight:700;font-size:15px;margin:16px 0 4px">📉 DAU 역신장 사유 & CRM 커버 범위</div>',
-            unsafe_allow_html=True)
-st.caption("역신장 사유는 CRM 레버에만 있지 않음 — 主/副/배경 사유를 함께 놓고, CRM이 직접 커버 가능한 몫을 표기.")
-st.markdown("""
-<div style="max-width:660px">
-<div style="border-left:4px solid #D85A30;background:#FAECE7;border-radius:6px;padding:9px 12px;margin:5px 0">
-  <div style="display:flex;justify-content:space-between;font-weight:600;color:#712B13"><span>① 구매의도·전환 약화</span><span style="color:#993C1D;font-size:12px">主 사유 · CRM 밖</span></div>
-  <div style="color:#712B13;font-size:12px;margin-top:2px">탐색(검색·상품상세)은 유지인데 쇼핑백 △47%·주문완료 △66% (Summ 1.0) → 자발 방문(직접 −12%) 감소의 근인. 상품·가치·구색 영역.</div>
-</div>
-<div style="border-left:4px solid #BA7517;background:#FAEEDA;border-radius:6px;padding:9px 12px;margin:5px 0">
-  <div style="display:flex;justify-content:space-between;font-weight:600;color:#633806"><span>② 재방문 접점 효율 (CRM)</span><span style="color:#854F0B;font-size:12px">副 사유 · CRM 통제</span></div>
-  <div style="color:#633806;font-size:12px;margin-top:2px">발송이 D-1 기준이라 관심 시점을 놓침 · 앱푸시 6회/일 포화 (Summ 3.0). 앱푸시 DAU −20%(반응률↓).</div>
-</div>
-<div style="border-left:4px solid #888780;background:#F1EFE8;border-radius:6px;padding:9px 12px;margin:5px 0">
-  <div style="display:flex;justify-content:space-between;font-weight:600;color:#444441"><span>③ 시장·플랫폼 외생</span><span style="color:#5F5E5A;font-size:12px">배경 · CRM 밖</span></div>
-  <div style="color:#444441;font-size:12px;margin-top:2px">전 등급·전체 DAU 동반 하락(−10%대) — VIP 고유 문제가 아닌 시장 전반 하락 압력.</div>
-</div>
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown('<div style="font-size:13px;font-weight:600;margin:12px 0 2px">유입 채널별 역신장 기여도 (데이터 · 2025-06→2026-06)</div>',
+st.markdown('<div style="font-weight:700;font-size:15px;margin:16px 0 4px">📉 DAU 역신장 사유 & CRM 대응 (기여 큰 순)</div>',
             unsafe_allow_html=True)
 st.markdown("""
-<div style="max-width:620px;font-size:13px;color:#2C2C2A">
-<div style="display:flex;align-items:center;margin:5px 0">
-  <span style="width:96px">직접 (자발)</span>
-  <span style="flex:1;background:#F1EFE8;border-radius:4px;height:18px"><span style="display:block;width:81%;background:#B4B2A9;height:18px;border-radius:4px"></span></span>
-  <span style="width:150px;text-align:right;color:#5F5E5A">기여 81% · ①과 연결</span>
-</div>
-<div style="display:flex;align-items:center;margin:5px 0">
-  <span style="width:96px">앱푸시</span>
-  <span style="flex:1;background:#F1EFE8;border-radius:4px;height:18px"><span style="display:block;width:45%;background:#EF9F27;height:18px;border-radius:4px"></span></span>
-  <span style="width:150px;text-align:right;color:#854F0B;font-weight:600">기여 45% · CRM 통제(②)</span>
-</div>
-<div style="display:flex;align-items:center;margin:5px 0">
-  <span style="width:96px">광고 (유료)</span>
-  <span style="flex:1;background:#F1EFE8;border-radius:4px;height:18px"><span style="display:block;width:24%;background:#85B7EB;height:18px;border-radius:4px"></span></span>
-  <span style="width:150px;text-align:right;color:#185FA5">△24% 상쇄(유료 방어)</span>
-</div>
-</div>
+<table style="width:100%;max-width:720px;border-collapse:collapse;font-size:13px;color:#2C2C2A">
+<thead><tr style="background:#EDEBE4;color:#444441">
+<th style="text-align:left;padding:8px 10px">역신장 사유</th>
+<th style="text-align:left;padding:8px 10px">데이터 근거</th>
+<th style="padding:8px 10px">기여도</th>
+<th style="text-align:left;padding:8px 10px">CRM 대응 방향</th>
+</tr></thead>
+<tbody>
+<tr style="border-bottom:1px solid #E0DED6">
+<td style="padding:9px 10px;font-weight:600">구매의도·전환 약화</td>
+<td style="padding:9px 10px;color:#5F5E5A">쇼핑백 △47%·주문완료 △66% (Summ 1.0)</td>
+<td style="padding:9px 10px;text-align:center"><span style="background:#F5C4B3;color:#712B13;padding:2px 9px;border-radius:10px;white-space:nowrap">가장 큼</span><div style="font-size:11px;color:#888;margin-top:3px">자발 감소 ~81%</div></td>
+<td style="padding:9px 10px">이탈 카테고리 데이터 공유 → 상품·기획 연계</td>
+</tr>
+<tr style="border-bottom:1px solid #E0DED6">
+<td style="padding:9px 10px;font-weight:600">재방문 접점 효율</td>
+<td style="padding:9px 10px;color:#5F5E5A">발송 D-1·앱푸시 6회/일 포화 (Summ 3.0)</td>
+<td style="padding:9px 10px;text-align:center"><span style="background:#FAC775;color:#633806;padding:2px 9px;border-radius:10px;white-space:nowrap">중간</span><div style="font-size:11px;color:#888;margin-top:3px">앱푸시 ~45%</div></td>
+<td style="padding:9px 10px;font-weight:600;color:#854F0B">발송 시점 정밀화(D-1→실시간)·관련성 &larr; 직접</td>
+</tr>
+<tr>
+<td style="padding:9px 10px;font-weight:600">시장·플랫폼 전반</td>
+<td style="padding:9px 10px;color:#5F5E5A">전 등급·전체 DAU 동반 △10%대</td>
+<td style="padding:9px 10px;text-align:center"><span style="background:#DCDAD1;color:#444441;padding:2px 9px;border-radius:10px;white-space:nowrap">배경</span></td>
+<td style="padding:9px 10px">방어폭 모니터링 (외생 흐름 추적)</td>
+</tr>
+</tbody></table>
 """, unsafe_allow_html=True)
-
+st.caption("기여도 %는 유입 채널 분해 기준(자발 감소↔구매의도, 앱푸시↔접점효율) · 중복집계로 합≠100% · 사유 크기는 판단, 개선 효과는 파일럿 실측.")
 insight([
-    "<b>CRM이 직접 커버 가능한 건 앱푸시(②) — 역신장의 ~45%</b>. 主 사유인 구매의도 약화(①, 자발 81%)와 외생(③)은 대체로 CRM 밖.",
-    "<b>커버 상한(논리)</b>: 앱푸시를 전년 수준 회복 시 이론상 최대 <b>~45%</b> 커버 — 한 요인은 자신이 유발한 몫 이상 못 메움. 나머지 ~55%는 상품·가치·시장 → <b>CRM은 반전이 아닌 방어</b>.",
-    "<span style='color:#888'>※ 채널 기여도는 데이터(중복집계로 합≠100%) · 사유 크기(主/副/배경)는 판단 · 실제 개선 효과는 파일럿 실측. 재설치 레버 커버율은 아래 시뮬레이터 참조.</span>",
+    "CRM이 <b>직접 대응하는 건 '재방문 접점(앱푸시, 기여 ~45%)'</b> — 발송을 D-1→실시간·관련성으로. 나머지는 데이터 공유·모니터링으로 연계.",
+    "<b>커버 상한</b>: 앱푸시를 전년 수준 회복 시 이론상 최대 <b>~45%</b>(자기 유발분 이내) → CRM은 <b>반전이 아닌 방어</b>. 재설치 레버 커버율은 아래 시뮬레이터 참조.",
 ])
 
 # ════════════════════════════════════════════════════════════
