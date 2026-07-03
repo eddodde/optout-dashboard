@@ -477,7 +477,7 @@ def group_snapshot(grp, snap, period_long, period_wide):
 dau_sum = {}   # 결론 섹션에서 재사용할 DAU 요약(있으면 채워짐)
 if up_dau is not None or up_chdau is not None:
     section("DAU 문제 진단 — 왜 '도달'이 레버인가",
-            "DAU 하락(빈도 문제) → 자발 회복·콘텐츠 막힘 → ∴ 통제 레버 = 터치를 먹히게(행동 트리거 D-1→실시간 × 도달력)", anchor="sec-dau")
+            "DAU 하락(빈도 문제) → 자발 회복·콘텐츠 개선 제약 → ∴ 통제 레버 = 발송의 반응 유도력 제고(행동 트리거 D-1→실시간 × 도달력)", anchor="sec-dau")
     VIPG = GROUPS["VIP"]
     try:
         # ── (0) 채널별 일 DAU 먼저 파싱 (B2B 제외 = 진성 VIP, 내부 관리지표와 동일 기준)
@@ -624,9 +624,9 @@ if up_dau is not None or up_chdau is not None:
                     yoy_line,
                     f"<b>앱푸시 DAU {fnum(p0)} → {fnum(p1)} ({(p1/p0-1)*100:+.0f}%)</b>로 owned 채널 중 최대 하락. "
                     "직접(자발)도 하락하는데 <b>광고(유료)만 상승</b> → 자발 방문을 유료로 방어 중(로열티 착시·비용 리스크).",
-                    "푸시 도달(타겟팅가능)은 flat인데 푸시 DAU가 빠짐 → 문제는 '못 닿아서'가 아니라 <b>'닿아도 안 먹혀서'(1건당 반응률↓)</b>. 콘텐츠(전관행사)로도 회복 안 됨.",
-                    "자발 회복·콘텐츠는 막힘 → 통제 레버는 <b>터치를 먹히게 만들기</b>: ① 행동 트리거(D-1→실시간) ② 도달력. "
-                    "유료 방어를 owned 정밀 푸시로 전환. (뒤 '진단 논리' 참고)",
+                    "푸시 도달(타겟팅가능)은 정체인데 푸시 DAU는 감소 → 문제는 <b>도달 부족이 아니라 도달 후 반응 저하</b>(1건당 반응률↓). 콘텐츠(전관행사)로도 회복되지 않음.",
+                    "자발 회복·콘텐츠 개선이 제약된 상황 → 통제 레버는 <b>발송의 반응 유도력 제고</b>: ① 행동 트리거(D-1→실시간) ② 도달력. "
+                    "유료 방어를 owned 정밀 발송으로 전환. (하단 '진단 논리' 참조)",
                 ])
     except Exception as e:
         st.warning(f"DAU 데이터 파싱 중 문제: {e} — 파일 형식을 확인해 주세요.")
@@ -653,7 +653,7 @@ if vip["act_push"]:
     insight([
         f"수신동의는 <b>{vip['consent']:.1f}%</b>로 이미 충분 — 병목은 동의가 아니라 <b>앱 보유</b>(타겟팅가능 {vip['reach']:.1f}%). 동의 확보형 캠페인은 효과 한계.",
         f"<b>{fnum(vip['unreach'])}명(동의자의 {share:.0f}%)</b>이 앱 미보유/삭제로 푸시 도달 불가 → 이 풀의 <b>재설치 전환</b>이 VIP DAU 회복의 최대 레버.",
-        f"PUSH만 {'순감' if push_net < 0 else '정체'}({fsigned(push_net)})이고 SMS({fsigned(vip['chnet'].get('SMS',0))})·EMAIL({fsigned(vip['chnet'].get('EMAIL',0))})은 순증 → 앱 채널만 약화. 푸시 못 닿는 VIP엔 <b>알림톡/카카오 대체 도달</b> 병행.",
+        f"PUSH만 {'순감' if push_net < 0 else '정체'}({fsigned(push_net)})이고 SMS({fsigned(vip['chnet'].get('SMS',0))})·EMAIL({fsigned(vip['chnet'].get('EMAIL',0))})은 순증 → 앱 채널만 약화. 푸시 도달 불가 VIP에는 <b>알림톡/카카오 대체 도달</b> 병행.",
         proj,
     ], kind)
 
@@ -695,7 +695,7 @@ best = gpv["reach"].idxmax()            # 도달률 가장 높은 등급
 insight([
     f"재설치 <b>1순위는 {top_vol}</b> — 미보유/삭제 절대 규모가 <b>{fnum(gpv.loc[top_vol,'unreach'])}명</b>으로 최대(도달률 {gpv.loc[top_vol,'reach']:.0f}%). 규모·효율 모두 부합.",
     f"주목할 점: 도달률이 가장 높은 등급 <b>{best}</b>조차 <b>{gpv.loc[best,'reach']:.0f}%</b> — 상위 등급도 절반 가까이 미도달. <b>등급 불문 앱 보유가 공통 병목</b>(단순히 하위 등급 문제가 아님).",
-    "발송 타겟에 '<b>앱 보유</b>' 필터 적용 → 미보유 등급엔 대체 채널로 전환해 '발송해도 안 닿는' 낭비 제거.",
+    "발송 타겟에 '<b>앱 보유</b>' 필터 적용 → 미보유 등급은 대체 채널로 전환해 '발송해도 도달하지 않는' 낭비 제거.",
 ])
 
 # VIP 앱 미보유/삭제 일별 추세 (이탈과 별개 누수) — 등급 필터 무관 VIP 전체
@@ -714,7 +714,7 @@ if len(vip_daily) > 1:
                                    showgrid=False, tickformat=".1f"))
     plot(figv, "VIP 앱 미보유/삭제 일별 추세")
     st.caption("앱 미보유/삭제 = 수신동의 − 타겟팅가능(PUSH). 수신거부(이탈)와 다른 누수 — 동의는 유지하지만 "
-               "앱이 없어 못 닿는 모수. (VIP 등급 데이터는 6/15부터라 추세가 짧음)")
+               "앱 미보유로 도달 불가한 모수. (VIP 등급 데이터는 6/15부터라 추세가 짧음)")
 
 # ════════════════════════════════════════════════════════════
 # 3. 수신거부 분석
@@ -750,7 +750,7 @@ with cc2:
                        xaxis=dict(categoryorder="array", categoryarray=grade_order_sel))
     plot(figo, "등급별 수신거부율 (전채널)")
     st.caption("수신거부율 = 기간 누적 이탈 ÷ 최근일 수신자수(선택 채널 합) × 100. "
-               "※ 모수 작은 상위 등급(SP·PT)은 이탈 몇 건에도 율이 튀니, 막대 위 절대 이탈 건수를 함께 보세요(실제 물량은 RD·BK·PP).")
+               "※ 모수 작은 상위 등급(SP·PT)은 이탈 몇 건에도 율의 변동성이 큼 — 절대 이탈 건수를 함께 확인(실제 물량은 RD·BK·PP).")
 
 # 등급 × 채널 히트맵
 metric_choice = st.radio("히트맵 지표", ["수신거부 건수", "수신거부율(%)", "순증감"],
@@ -776,7 +776,7 @@ ch_n = fl.groupby("channel")["new"].sum()
 push_net2 = ch_n.get("PUSH", 0) - ch_o.get("PUSH", 0)
 insight([
     f"앱 방문(DAU)에 관여하는 채널은 <b>PUSH</b>(증감 {fsigned(push_net2)}) — SMS/EMAIL 순증은 앱 방문 기여가 적어, 수신거부 방어 우선순위는 PUSH.",
-    "등급별 '수신거부율'은 모수 작은 상위 등급에서 튀는 노이즈 → 방어 대상은 율이 아니라 <b>절대 이탈 건수(RD·BK·PP)</b> 기준으로 선정.",
+    "등급별 '수신거부율'은 모수 작은 상위 등급에서 변동성이 큰 노이즈 → 방어 대상은 율이 아니라 <b>절대 이탈 건수(RD·BK·PP)</b> 기준으로 선정.",
 ])
 
 # ════════════════════════════════════════════════════════════
@@ -896,7 +896,7 @@ if LT is not None:
                        yaxis=dict(title="전체유효회원"),
                        yaxis2=dict(title="푸시 도달률(%)", overlaying="y", side="right", showgrid=False))
     plot(figt, "회원수는 ↑, 푸시 도달률은 ↓")
-    st.caption(f"※ 풀 리카운트 등 비정상적으로 튀는 날은 정확도를 위해 자동 제외(롤링 중앙값 대비 과대 편차). {excl_txt}")
+    st.caption(f"※ 풀 리카운트 등 비정상적으로 급등하는 날은 정확도를 위해 자동 제외(롤링 중앙값 대비 과대 편차). {excl_txt}")
 
     # 앱 미보유/삭제(전체) 추세 = 수신동의 − 타겟팅가능 (이탈과 별개 누수)
     consent_s = drop_outliers(lt_series(LT, "MEMBERSHIP", "수신동의"))
@@ -917,7 +917,7 @@ if LT is not None:
         figg.update_layout(height=300, margin=dict(t=10, b=10), hovermode="x unified", legend_title_text="",
                            yaxis=dict(title="앱 미보유/삭제(명)"),
                            yaxis2=dict(title="수신동의 대비(%)", overlaying="y", side="right", showgrid=False))
-        plot(figg, "앱 미보유/삭제 추세 (전체) — 동의했지만 앱이 없어 못 닿는 모수")
+        plot(figg, "앱 미보유/삭제 추세 (전체) — 수신동의했으나 앱 미보유로 도달 불가한 모수")
 
     tcol1, tcol2 = st.columns(2)
     with tcol1:
@@ -989,7 +989,7 @@ st.markdown("""
     <div class="logic-num">✓</div>
     <div class="logic-card ok">
       <b>방향 — 통제 가능한 최대 레버 (no-regret)</b><span class="tag">Summ 3.0</span><br>
-      <b>전제:</b> 자발적 빈도 회복은 사실상 불가(경쟁 심화·상품/UX는 타부서·즉시개선 난망) → <b>우리의 '터치'가 유효하게 먹혀야</b> 함.
+      <b>전제:</b> 자발적 빈도 회복은 사실상 불가(경쟁 심화·상품/UX는 타부서·즉시개선 난망) → <b>발송(터치)이 실제 반응으로 이어져야</b> 함.
       관점 전환: AS-IS <i>"무엇을 만들까"</i> → TO-BE <b>"재방문 계기를 적시·적합하게 전달하는가"</b>.<br>
       ① <b>행동 기반 트리거</b> — 현재 발송이 <b>D-1(하루 전) 데이터</b> 기반이라 조회·장바구니·위시 등 관심이 살아있는 순간을 놓침
       → <b>처방(개입) 자체가 손발 묶인 상태</b>. 행동 발생 시점 기반으로 풀어야 터치가 먹힘.<br>
@@ -1091,7 +1091,7 @@ if vip["act_push"]:
     if has_dau:
         sowhat = [
             "범용 스티키니스(출첵·데일리딜)는 commoditized·콘텐츠는 소진 → 차별화 레버는 <b>정밀 재참여(정밀도 × 도달)</b>.",
-            "<b>정밀도</b>: 행동데이터 D-1(하루 전)→실시간으로 신선화해 '오늘 행동을 오늘' 넛지. <b>도달</b>: 앱 푸시 도달율이 그 전달 용량(문자·광고 대비 저비용).",
+            "<b>정밀도</b>: 행동데이터 D-1(하루 전)→실시간으로 신선화해 당일 행동 기반으로 발송. <b>도달</b>: 앱 푸시 도달율이 그 전달 용량(문자·광고 대비 저비용).",
             "지금 DAU는 <b>광고(유료)로 방어</b> 중 → owned 정밀 푸시로 전환해야 지속가능. 총 DAU 대신 <b>직접(자발) DAU·유료 의존도</b>를 건강 지표로.",
         ]
     else:
@@ -1103,9 +1103,9 @@ if vip["act_push"]:
     insight(sowhat, cap="💡 인사이트 · 시사점 (So-What)")
 
     insight([
-        "<b>① 정밀도 — 행동 발생 시점 기반 CRM(D-1 → 실시간)</b> — '오늘 본 카테고리/찜/장바구니'를 당일 넛지로. "
-        "현재는 하루 전 기준이라 타이밍을 놓침. 이 latency 개선이 정밀 타겟팅의 전제.",
-        f"<b>② 도달 — 앱 푸시 도달율 확대</b> — 정밀 넛지의 전달 용량. 미도달 <b>{fnum(vip['unreach'])}명</b> 재설치 + 활성인데 못 닿던 층 커버. "
+        "<b>① 정밀도 — 행동 발생 시점 기반 CRM(D-1 → 실시간)</b> — 당일 조회·찜·장바구니 행동을 당일 발송에 반영. "
+        "현재는 하루 전 기준이라 관심 시점을 놓침. 이 latency 개선이 정밀 타겟팅의 전제.",
+        f"<b>② 도달 — 앱 푸시 도달율 확대</b> — 정밀 발송의 전달 용량. 미도달 <b>{fnum(vip['unreach'])}명</b> 재설치 + 활성이나 도달 불가하던 층 포함. "
         "owned 채널이라 문자·광고 대비 저비용.",
         "<b>③ 유료 의존 축소 — 광고/문자로 산 DAU를 정밀 푸시로 전환</b> — 지속가능성·비용 개선. "
         "<b>직접(자발) DAU·유료 의존도</b>를 건강 지표로 모니터링.",
@@ -1180,7 +1180,7 @@ if vip["act_push"]:
          if yoy_after is not None else
          f"전환 <b>{conv:.1f}%</b>·빈도 <b>{stick:.0f}%</b> 가정 시 DAU <b>+{fnum(dau_lift)}</b>."),
         breakeven_txt,
-        "재설치자는 <b>푸시 타겟팅가능에도 편입</b> → 이후 푸시 넛지로 빈도를 더 밀어올릴 여지(약한 선순환).",
+        "재설치자는 <b>푸시 타겟팅가능에도 편입</b> → 이후 푸시 발송으로 방문 빈도 제고 여지(선순환).",
         "<span style='color:#888'>※ 가정 기반 추정 — 재설치자의 실제 빈도·리텐션은 캠페인 후 실측으로 검증 필요.</span>",
     ])
 else:
