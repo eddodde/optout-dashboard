@@ -1094,17 +1094,6 @@ insight([
     "CRM 레버 중 <b>개선 여지가 남은 건 '행동 시점 정밀도(D-1→실시간)' — 커버 상한 ~45%</b>. 운영 중 레버(전관행사·발송량·휴면·도달)는 이미 소진(~0%), 재설치는 바운드(~10%).",
     "→ CRM 최선은 접점 개선으로 <b>하락 방어(반전 아님)</b>. 재설치 레버 상세는 결론 하단 시뮬레이터.",
 ])
-st.markdown("""
-<div style="max-width:760px;border:1px dashed #BA7517;border-radius:8px;padding:11px 14px;margin:8px 0;background:#FEFBF4">
-<div style="font-weight:600;color:#854F0B;font-size:13px">🔍 추가 검토 레버 (제3자 관점) — 위 리스트에 없는 CRM 내 레버</div>
-<div style="font-size:12px;color:#5F5E5A;margin-top:6px;line-height:1.75">
-<b>① 성과관리 지표 전환</b> — CRM KPI를 거래액·ROAS에서 <b>재방문·DAU</b>로. Summ 3.0 'CRM 4축' 중 하나인데 매트릭스엔 빠짐. 모든 캠페인의 최적화 목표가 바뀌어 <b>다른 레버들의 효율을 좌우하는 상위 레버</b> · 착수: 미착수(지표 세팅)<br>
-<b>② 대체 도달 채널</b> — 앱 미보유·푸시 off 층에 <b>알림톡·카카오·웹푸시</b>로 재설치 없이 넛지. '미보유 재설치'보다 마찰이 낮아 즉효 가능 · 착수: 부분<br>
-<b>③ 인앱·온사이트 메시징</b> — 방문 중 다음 방문 계기 심기(장바구니·위시 인앱 리마인드). outbound(푸시·문자) 외 접점이라 피로도·비용 부담 낮음 · 착수: 미착수
-</div>
-<div style="font-size:11px;color:#999;margin-top:6px">※ 제안 — 효과는 미검증(파일럿 확인). 특히 ①은 개별 캠페인이 아니라 CRM 전체 최적화 방향을 바꾸는 레버.</div>
-</div>
-""", unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════
 # 4.5 결론 — 인사이트·시사점·액션 (컨설팅식 종합)
