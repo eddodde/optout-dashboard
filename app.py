@@ -579,14 +579,23 @@ if up_dau is not None or up_chdau is not None:
                 p0, p1 = mon["PUSH"].iloc[0], mon["PUSH"].iloc[-1]
                 dau_sum.update(push_chg=(p1 / p0 - 1) * 100 if p0 else 0,
                                push_share=mon["push_share"].iloc[-1])
+                _scale = st.radio("표시", ["지수 (시작월=100, 추세 비교)", "절대값 (명)"],
+                                  horizontal=True, key="pushdau_scale", label_visibility="collapsed")
+                _idx = _scale.startswith("지수")
+                tot_y = mon["TOTAL"] / mon["TOTAL"].iloc[0] * 100 if _idx else mon["TOTAL"]
+                push_y = mon["PUSH"] / mon["PUSH"].iloc[0] * 100 if _idx else mon["PUSH"]
                 figp = go.Figure()
-                figp.add_scatter(x=mon.index, y=mon["TOTAL"], name="VIP 전체 DAU", mode="lines+markers",
+                figp.add_scatter(x=mon.index, y=tot_y, name="VIP 전체 DAU", mode="lines+markers",
                                  line=dict(color="#4C72B0", width=2.5))
-                figp.add_scatter(x=mon.index, y=mon["PUSH"], name="앱푸시 유입 DAU", mode="lines+markers",
+                figp.add_scatter(x=mon.index, y=push_y, name="앱푸시 유입 DAU", mode="lines+markers",
                                  line=dict(color="#DD8452", width=2.5))
+                if _idx:
+                    figp.add_hline(y=100, line=dict(color="#bbb", width=1, dash="dot"))
                 figp.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified",
-                                   legend_title_text="", yaxis=dict(title="DAU(명)"))
+                                   legend_title_text="", yaxis=dict(title="지수 (시작월=100)" if _idx else "DAU(명)"))
                 plot(figp, "VIP 전체 DAU vs 앱푸시 유입 DAU (B2B 제외)")
+                if _idx:
+                    st.caption("지수: 시작월=100 대비 추세. 두 선이 겹치면 같은 속도로, 앱푸시(주황)가 더 아래로 벌어지면 푸시가 상대적으로 더 빠르게 하락.")
                 if anom_txt:
                     st.caption(anom_txt + " — 데이터팀 확인 권장")
                 yoy_line = ""
