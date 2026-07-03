@@ -1057,6 +1057,34 @@ st.markdown("""
 st.caption("주황 = 미착수·부분(남은 레버) · 회색 = 운영 중. 세로축 영향도는 판단(데이터 아님). "
            "운영 중 레버의 DAU 효과는 데이터상 제한적(전관행사 견인 △0.1%, 앱푸시 6회/일 포화) → 남은 착수 대상은 행동 시점 정밀도(현 D-1)·발송 관련성.")
 
+st.markdown('<div style="font-weight:700;font-size:15px;margin:16px 0 4px">📊 역신장 기여도 & CRM 커버 가능 범위</div>',
+            unsafe_allow_html=True)
+st.caption("VIP DAU 전년비 변화(2025-06 → 2026-06)를 유입 채널로 분해 — '무엇이 얼마나 끌어내렸나'.")
+st.markdown("""
+<div style="max-width:600px;font-size:13px;color:#2C2C2A">
+<div style="display:flex;align-items:center;margin:5px 0">
+  <span style="width:100px">직접 (자발)</span>
+  <span style="flex:1;background:#F1EFE8;border-radius:4px;height:18px"><span style="display:block;width:81%;background:#B4B2A9;height:18px;border-radius:4px"></span></span>
+  <span style="width:135px;text-align:right;color:#5F5E5A">기여 81% · CRM 간접</span>
+</div>
+<div style="display:flex;align-items:center;margin:5px 0">
+  <span style="width:100px">앱푸시</span>
+  <span style="flex:1;background:#F1EFE8;border-radius:4px;height:18px"><span style="display:block;width:45%;background:#EF9F27;height:18px;border-radius:4px"></span></span>
+  <span style="width:135px;text-align:right;color:#854F0B;font-weight:600">기여 45% · CRM 직접</span>
+</div>
+<div style="display:flex;align-items:center;margin:5px 0">
+  <span style="width:100px">광고 (유료)</span>
+  <span style="flex:1;background:#F1EFE8;border-radius:4px;height:18px"><span style="display:block;width:24%;background:#85B7EB;height:18px;border-radius:4px"></span></span>
+  <span style="width:135px;text-align:right;color:#185FA5">△24% 상쇄(방어)</span>
+</div>
+</div>
+""", unsafe_allow_html=True)
+insight([
+    "CRM이 <b>직접 통제하는 건 앱푸시</b>(역신장의 <b>~45%</b> 차지). 자발(직접) 81%는 대체로 CRM 밖, 광고는 유료로 24% 방어 중.",
+    "<b>커버 상한(논리)</b>: 푸시 정밀도·도달을 전년 수준으로 회복하면 <b>이론상 최대 ~45%</b> 커버 — 한 요인은 자신이 유발한 몫 이상 못 메움. 현실 회복폭은 그보다 작음.",
+    "<span style='color:#888'>※ 기여도=관측 DAU 변화의 채널 분해(중복집계로 합≠100%) · '커버 상한'은 논리적 최대치이며 실제 효과는 파일럿 실측 필요. 재설치 레버의 커버율은 아래 시뮬레이터 참조.</span>",
+])
+
 # ════════════════════════════════════════════════════════════
 # 4.5 결론 — 인사이트·시사점·액션 (컨설팅식 종합)
 # ════════════════════════════════════════════════════════════
