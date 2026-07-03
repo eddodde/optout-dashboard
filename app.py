@@ -1057,47 +1057,47 @@ st.markdown("""
 st.caption("주황 = 미착수·부분(남은 레버) · 회색 = 운영 중. 세로축 영향도는 판단(데이터 아님). "
            "운영 중 레버의 DAU 효과는 데이터상 제한적(전관행사 견인 △0.1%, 앱푸시 6회/일 포화) → 남은 착수 대상은 행동 시점 정밀도(현 D-1)·발송 관련성.")
 
-st.markdown('<div style="font-weight:700;font-size:15px;margin:16px 0 4px">📉 역신장 사유·레버 통합 (기여 큰 순) — 위 매트릭스 요소 반영</div>',
+st.markdown('<div style="font-weight:700;font-size:15px;margin:16px 0 4px">📉 역신장 요인별 기여 & 개선 여력 (위 매트릭스 요소를 기여 큰 순으로)</div>',
             unsafe_allow_html=True)
 st.markdown("""
 <table style="width:100%;max-width:760px;border-collapse:collapse;font-size:12.5px;color:#2C2C2A">
 <thead><tr style="background:#EDEBE4;color:#444441">
-<th style="text-align:left;padding:8px 10px">요소 (역신장 기여 큰 순)</th>
+<th style="text-align:left;padding:8px 10px">요소</th>
 <th style="padding:8px 10px;white-space:nowrap">역신장 기여</th>
-<th style="text-align:left;padding:8px 10px">대응 · 상태</th>
+<th style="padding:8px 10px;white-space:nowrap">개선 여력</th>
 </tr></thead>
 <tbody>
 <tr style="border-bottom:1px solid #E0DED6">
-<td style="padding:9px 10px"><b>구매의도·전환 약화</b><div style="font-size:11px;color:#888">상품·가치 · 쇼핑백 △47%·주문 △66% (Summ 1.0)</div></td>
-<td style="padding:9px 10px;text-align:center"><span style="background:#F5C4B3;color:#712B13;padding:2px 9px;border-radius:10px;white-space:nowrap">가장 큼</span><div style="font-size:11px;color:#888;margin-top:3px">자발 ~81%</div></td>
-<td style="padding:9px 10px">상품·기획 연계 <span style="color:#888">(카테고리 데이터 공유)</span></td>
+<td style="padding:10px"><b>구매의도·전환 약화</b> <span style="font-size:10px;color:#999">사유</span><div style="font-size:11px;color:#777;margin-top:2px">상품을 봐도 구매로 이어지지 않음(장바구니·주문 감소, Summ 1.0). 상품·가격 경쟁력 → 상품·기획 연계.</div></td>
+<td style="padding:10px;text-align:center"><span style="background:#C9C7BD;color:#2C2C2A;padding:2px 10px;border-radius:10px">높음</span></td>
+<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
 </tr>
 <tr style="border-bottom:1px solid #E0DED6;background:#FEF7E9">
-<td style="padding:9px 10px"><b>재방문 접점</b> — 발송 정밀도(D-1→실시간)·관련성<div style="font-size:11px;color:#888">발송 D-1 · 앱푸시 6회 포화 (Summ 3.0)</div></td>
-<td style="padding:9px 10px;text-align:center"><span style="background:#FAC775;color:#633806;padding:2px 9px;border-radius:10px;white-space:nowrap">중간</span><div style="font-size:11px;color:#888;margin-top:3px">앱푸시 ~45%</div></td>
-<td style="padding:9px 10px;font-weight:600;color:#854F0B">CRM 직접 · 미착수 &larr; 다음 액션</td>
+<td style="padding:10px"><b>행동 시점 정밀도 · 발송 관련성</b> <span style="font-size:10px;color:#B57200">매트릭스</span><div style="font-size:11px;color:#777;margin-top:2px">고객 행동이 하루 뒤(D-1)에야 발송에 반영돼 관심이 식은 뒤 도착. 실시간 전환 시 개선 여지. ← 다음 액션</div></td>
+<td style="padding:10px;text-align:center"><span style="background:#E0DED6;color:#444441;padding:2px 10px;border-radius:10px">중간</span></td>
+<td style="padding:10px;text-align:center"><span style="background:#FAC775;color:#633806;padding:2px 10px;border-radius:10px">높음</span></td>
 </tr>
 <tr style="border-bottom:1px solid #E0DED6">
-<td style="padding:9px 10px"><b>도달</b> — 미보유 재설치<div style="font-size:11px;color:#888">미도달 16.8만 · 10% 전환도 손익분기</div></td>
-<td style="padding:9px 10px;text-align:center"><span style="background:#DCDAD1;color:#444441;padding:2px 9px;border-radius:10px;white-space:nowrap">낮음</span></td>
-<td style="padding:9px 10px">CRM · 부분 착수</td>
+<td style="padding:10px"><b>미보유 재설치 · 채널 도달</b> <span style="font-size:10px;color:#B57200">매트릭스</span><div style="font-size:11px;color:#777;margin-top:2px">앱이 없는 고객은 방문 자체가 불가. 재설치 전환율이 낮아(10% 전환도 손익분기) 회복 폭 제한.</div></td>
+<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
+<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
 </tr>
 <tr style="border-bottom:1px solid #E0DED6">
-<td style="padding:9px 10px"><b>기존 운영 레버</b> — 전관행사·발송량·휴면·채널도달<div style="font-size:11px;color:#888">전관 DAU견인 △0.1% (Summ 1.2) · 앱푸시 6회 포화</div></td>
-<td style="padding:9px 10px;text-align:center"><span style="background:#E7E5DD;color:#5F5E5A;padding:2px 9px;border-radius:10px;white-space:nowrap">≈0</span></td>
-<td style="padding:9px 10px">CRM · 운영 중 <span style="color:#888">(여력 소진)</span></td>
+<td style="padding:10px"><b>전관행사 · 발송량 · 휴면 자동화</b> <span style="font-size:10px;color:#B57200">매트릭스</span><div style="font-size:11px;color:#777;margin-top:2px">이미 최대로 운영 중이라 추가 여력 없음. 전관행사도 DAU 견인 △0.1%(사실상 0, Summ 1.2).</div></td>
+<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
+<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
 </tr>
 <tr>
-<td style="padding:9px 10px"><b>시장·플랫폼 전반</b><div style="font-size:11px;color:#888">전 등급·전체 DAU 동반 △10%대</div></td>
-<td style="padding:9px 10px;text-align:center"><span style="background:#DCDAD1;color:#444441;padding:2px 9px;border-radius:10px;white-space:nowrap">배경</span></td>
-<td style="padding:9px 10px">모니터링 <span style="color:#888">(외생 흐름)</span></td>
+<td style="padding:10px"><b>시장·플랫폼 전반</b> <span style="font-size:10px;color:#999">외생</span><div style="font-size:11px;color:#777;margin-top:2px">경쟁사 포함 업계 전반 방문 감소(전 등급 DAU 동반 하락). CRM 통제 밖 — 방어폭 모니터링.</div></td>
+<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
+<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
 </tr>
 </tbody></table>
 """, unsafe_allow_html=True)
-st.caption("기여 %는 유입 채널 분해 기준(중복집계로 합≠100%) · 기여 크기·개선 여력은 판단 · 실제 효과는 파일럿 실측.")
+st.caption("역신장 기여·개선 여력은 높음/중간/낮음 3단계 판단(데이터 참고). '매트릭스'=위 2×2 요소 · '사유/외생'=CRM 밖 요인. 실제 효과는 파일럿 실측.")
 insight([
-    "매트릭스의 CRM 레버 중 <b>기존 운영(전관행사·발송량·휴면·도달)은 DAU 기여 ≈0(소진·포화)</b> → 남은 실효 레버는 <b>재방문 접점(D-1→실시간·관련성)</b>.",
-    "<b>커버 상한</b>: 접점(앱푸시)이 역신장의 ~45% → 전년 수준 회복 시 이론상 최대 ~45%. 가장 큰 구매의도(~81%)는 상품·기획 연계 → CRM은 <b>반전 아닌 방어</b>. 재설치 커버율은 아래 시뮬레이터.",
+    "매트릭스의 운영 중 레버(전관행사·발송량·휴면·도달)는 <b>이미 소진 → 개선 여력 낮음</b>. 여력이 남은 유일한 CRM 레버는 <b>행동 시점 정밀도(D-1→실시간)</b>.",
+    "역신장 기여가 가장 큰 <b>구매의도 약화</b>는 상품·기획 영역(CRM 여력 낮음) → CRM 몫은 <b>접점 개선으로 하락 방어</b>(반전 아님). 재설치 시 커버율은 아래 시뮬레이터.",
 ])
 
 # ════════════════════════════════════════════════════════════
