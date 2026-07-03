@@ -298,22 +298,22 @@ def section(title, hint="", anchor=None):
 
 # 사이드바 분석 메뉴 — 논리 흐름별 그룹핑 (그룹라벨, [(anchor, 라벨), ...])
 MENU = [
-    ("🎯 종합 요약", [
-        ("sec-core", "핵심 진단"),
+    ("① 문제 정의", [
         ("sec-dau", "DAU 문제 진단 (업로드 시)"),
+        ("sec-core", "VIP 도달 스냅샷"),
     ]),
-    ("📊 현황 진단", [
-        ("sec-group", "그룹 비교 (일반은 참고)"),
+    ("② 현황 진단 — 도달·이탈(도달력 축)", [
         ("sec-reach", "앱푸시 도달 진단"),
         ("sec-optout", "수신거부 분석"),
         ("sec-within", "그룹 내 등급별"),
+        ("sec-group", "그룹 비교 (일반 참고)"),
         ("sec-trend", "장기 추세 (전체)"),
     ]),
-    ("🧭 결론", [
-        ("sec-logic", "진단 논리 (소거법→방향)"),
+    ("③ 결론 — 논리 & 방향", [
+        ("sec-logic", "진단 논리 (소거→레버)"),
         ("sec-action", "인사이트 · 시사점 · 액션"),
     ]),
-    ("📁 부록", [
+    ("④ 부록", [
         ("sec-table", "상세 데이터"),
     ]),
 ]
@@ -406,7 +406,7 @@ with st.sidebar:
     st.markdown("**📂 분석 메뉴**")
     _nav = ""
     for _glabel, _items in MENU:
-        _open = " open" if _glabel == "📊 현황 진단" else ""
+        _open = " open" if _glabel.startswith("①") else ""
         _links = "".join(f'<a href="#{a}" class="navlink navsub">{lbl}</a>' for a, lbl in _items)
         _nav += (f'<details class="navacc" name="navmenu"{_open}>'
                  f'<summary class="navgroup">{_glabel}</summary>{_links}</details>')
@@ -470,44 +470,6 @@ def group_snapshot(grp, snap, period_long, period_wide):
         "out_trend": trend_word(pw.groupby("date")["out_all"].sum())[0],
     }
 
-
-# ════════════════════════════════════════════════════════════
-# 0. 핵심 진단
-# ════════════════════════════════════════════════════════════
-section("핵심 진단 — VIP · 앱푸시(DAU 채널) 기준",
-        f"기간 {d0} ~ {d1} ({n_days}일) · 도달률=최근일({last_day.date()}) 스냅샷 · 모든 수치 VIP 전용",
-        anchor="sec-core")
-
-vip = group_snapshot("VIP", fw_d_last, fl_d, fw_d)   # 등급 필터와 무관하게 항상 VIP 전체
-if vip["act_push"]:
-    share = vip["unreach"] / vip["act_push"] * 100
-    push_net = vip["chnet"].get("PUSH", 0)
-    push_out = vip["chout"].get("PUSH", 0)
-    kind = "warn" if (vip["reach"] < 50 or push_net < 0) else ""
-    push_year = push_net / n_days * 365
-    year_pct = abs(push_year) / vip["tot_push"] * 100 if vip["tot_push"] else 0
-    proj = (f"현 순감 속도(일평균 {fsigned(push_net / n_days)}명)면 <b>연 △{fnum(abs(push_year))}명</b>"
-            f"(현 타겟팅가능의 {year_pct:.0f}%)이 추가로 미도달 — 다만 즉효 레버는 신규 순감보다 "
-            f"<b>이미 미도달인 {fnum(vip['unreach'])}명 스톡</b>."
-            if push_net < 0 else "")
-    insight([
-        f"수신동의는 <b>{vip['consent']:.1f}%</b>로 이미 충분 — 병목은 동의가 아니라 <b>앱 보유</b>(타겟팅가능 {vip['reach']:.1f}%). 동의 확보형 캠페인은 효과 한계.",
-        f"<b>{fnum(vip['unreach'])}명(동의자의 {share:.0f}%)</b>이 앱 미보유/삭제로 푸시 도달 불가 → 이 풀의 <b>재설치 전환</b>이 VIP DAU 회복의 최대 레버.",
-        f"PUSH만 {'순감' if push_net < 0 else '정체'}({fsigned(push_net)})이고 SMS({fsigned(vip['chnet'].get('SMS',0))})·EMAIL({fsigned(vip['chnet'].get('EMAIL',0))})은 순증 → 앱 채널만 약화. 푸시 못 닿는 VIP엔 <b>알림톡/카카오 대체 도달</b> 병행.",
-        proj,
-    ], kind)
-
-    c1, c2, c3, c4, c5 = st.columns(5)
-    with c1: metric_card("VIP 푸시 도달률", f"{vip['reach']:.1f}%", f"수신동의율 {vip['consent']:.1f}% → 타겟팅가능")
-    with c2: metric_card("VIP 앱 미보유/삭제", fnum(vip["unreach"]), f"수신동의의 {share:.0f}% · 푸시 발송 불가")
-    with c3: metric_card("VIP 타겟팅가능_PUSH", fnum(vip["tot_push"]), f"수신동의 {fnum(vip['act_push'])}")
-    with c4: metric_card("VIP PUSH 이탈(기간 누적)", fnum(push_out),
-                         f"{n_days}일 합계 · 일평균 {fnum(push_out / n_days)}명")
-    with c5: metric_card("VIP PUSH 증감(기간 누적)", fsigned(push_net),
-                         f"신규−이탈 · 일평균 {fsigned(push_net / n_days)}명 "
-                         f"{'순증' if push_net >= 0 else '순감'}")
-else:
-    st.info("VIP 데이터가 없습니다. 사이드바 그룹 필터에 VIP를 포함해 주세요.")
 
 # ════════════════════════════════════════════════════════════
 # 0.7 DAU 문제 진단 (업로드 시) — 왜 '도달'이 레버인가 (소거법)
@@ -642,47 +604,42 @@ if up_dau is not None or up_chdau is not None:
         st.warning(f"DAU 데이터 파싱 중 문제: {e} — 파일 형식을 확인해 주세요.")
 
 # ════════════════════════════════════════════════════════════
-# 1. 그룹 비교 (VIP vs 일반)
+# 0. 핵심 진단
 # ════════════════════════════════════════════════════════════
-section("그룹 비교 — VIP (일반은 참고)",
-        "본 진단 목표는 VIP DAU · 일반은 범위 밖 참고용(별도 관제 대상)", anchor="sec-group")
-gcols = st.columns(2)
-gsnap = {}
-for col, grp in zip(gcols, ["VIP", "일반"]):
-    gs = group_snapshot(grp, fw_d_last, fl_d, fw_d)
-    gsnap[grp] = gs
-    share = (gs["unreach"] / gs["act_push"] * 100) if gs["act_push"] else 0
-    cn = gs["chnet"]
-    _ref = ' <span style="font-size:11px;color:#aaa">(참고·범위 밖)</span>' if grp == "일반" else ""
-    with col:
-        st.markdown(
-            f'<div class="metric-card" style="border-left-color:{GROUP_COLOR[grp]}">'
-            f'<div class="metric-value" style="font-size:19px">{grp}{_ref} '
-            f'<span style="font-size:13px;color:#888">({", ".join(GROUPS[grp])})</span></div>'
-            f'<div class="metric-sub">유효회원 {fnum(gs["act"])} → 수신동의 <b>{gs["consent"]:.1f}%</b> '
-            f'→ 타겟팅가능 <b>{gs["reach"]:.1f}%</b> ({fnum(gs["tot_push"])})</div>'
-            f'<div class="metric-sub">앱 미보유/삭제 <b>{fnum(gs["unreach"])}</b> ({share:.0f}%)</div>'
-            f'<div class="metric-sub">증감 — PUSH <b>{fsigned(cn.get("PUSH",0))}</b> · '
-            f'SMS <b>{fsigned(cn.get("SMS",0))}</b> · EMAIL <b>{fsigned(cn.get("EMAIL",0))}</b></div>'
-            f'</div>', unsafe_allow_html=True)
+section("VIP 도달 스냅샷 — 앱푸시(도달력 축)",
+        f"기간 {d0} ~ {d1} ({n_days}일) · 도달률=최근일({last_day.date()}) 스냅샷 · 모든 수치 VIP 전용",
+        anchor="sec-core")
 
-# 그룹별 도달률 일별 추이
-grp_daily = (fw_d.groupby(["date", "group"]).agg(tp=("tot_push", "sum"), ap=("act_push", "sum")).reset_index())
-grp_daily["reach"] = np.where(grp_daily["ap"] > 0, grp_daily["tp"] / grp_daily["ap"] * 100, 0)
-figr = px.line(grp_daily, x="date", y="reach", color="group", markers=True,
-               color_discrete_map=GROUP_COLOR, labels={"reach": "앱푸시 도달률(%)", "date": "일자", "group": "그룹"})
-figr.update_layout(height=320, margin=dict(t=20, b=10), hovermode="x unified", legend_title_text="")
-plot(figr, "그룹별 앱푸시 도달률 추이")
-
-if "VIP" in gsnap:
-    v = gsnap["VIP"]
-    vp = v["chnet"].get("PUSH", 0)
-    v_share = (v["unreach"] / v["act_push"] * 100) if v["act_push"] else 0
+vip = group_snapshot("VIP", fw_d_last, fl_d, fw_d)   # 등급 필터와 무관하게 항상 VIP 전체
+if vip["act_push"]:
+    share = vip["unreach"] / vip["act_push"] * 100
+    push_net = vip["chnet"].get("PUSH", 0)
+    push_out = vip["chout"].get("PUSH", 0)
+    kind = "warn" if (vip["reach"] < 50 or push_net < 0) else ""
+    push_year = push_net / n_days * 365
+    year_pct = abs(push_year) / vip["tot_push"] * 100 if vip["tot_push"] else 0
+    proj = (f"현 순감 속도(일평균 {fsigned(push_net / n_days)}명)면 <b>연 △{fnum(abs(push_year))}명</b>"
+            f"(현 타겟팅가능의 {year_pct:.0f}%)이 추가로 미도달 — 다만 즉효 레버는 신규 순감보다 "
+            f"<b>이미 미도달인 {fnum(vip['unreach'])}명 스톡</b>."
+            if push_net < 0 else "")
     insight([
-        f"VIP는 앱 미보유/삭제 <b>{fnum(v['unreach'])}명(동의자의 {v_share:.0f}%)</b>이 도달을 막음 — "
-        f"본 진단의 목표는 <b>VIP DAU</b>이므로 판단·액션은 VIP 기준으로 한정.",
-        f"VIP PUSH <b>{fsigned(vp)}</b>({'순감' if vp < 0 else '정체'}) → VIP 전용 재설치·리텐션이 과제.",
-    ])
+        f"수신동의는 <b>{vip['consent']:.1f}%</b>로 이미 충분 — 병목은 동의가 아니라 <b>앱 보유</b>(타겟팅가능 {vip['reach']:.1f}%). 동의 확보형 캠페인은 효과 한계.",
+        f"<b>{fnum(vip['unreach'])}명(동의자의 {share:.0f}%)</b>이 앱 미보유/삭제로 푸시 도달 불가 → 이 풀의 <b>재설치 전환</b>이 VIP DAU 회복의 최대 레버.",
+        f"PUSH만 {'순감' if push_net < 0 else '정체'}({fsigned(push_net)})이고 SMS({fsigned(vip['chnet'].get('SMS',0))})·EMAIL({fsigned(vip['chnet'].get('EMAIL',0))})은 순증 → 앱 채널만 약화. 푸시 못 닿는 VIP엔 <b>알림톡/카카오 대체 도달</b> 병행.",
+        proj,
+    ], kind)
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1: metric_card("VIP 푸시 도달률", f"{vip['reach']:.1f}%", f"수신동의율 {vip['consent']:.1f}% → 타겟팅가능")
+    with c2: metric_card("VIP 앱 미보유/삭제", fnum(vip["unreach"]), f"수신동의의 {share:.0f}% · 푸시 발송 불가")
+    with c3: metric_card("VIP 타겟팅가능_PUSH", fnum(vip["tot_push"]), f"수신동의 {fnum(vip['act_push'])}")
+    with c4: metric_card("VIP PUSH 이탈(기간 누적)", fnum(push_out),
+                         f"{n_days}일 합계 · 일평균 {fnum(push_out / n_days)}명")
+    with c5: metric_card("VIP PUSH 증감(기간 누적)", fsigned(push_net),
+                         f"신규−이탈 · 일평균 {fsigned(push_net / n_days)}명 "
+                         f"{'순증' if push_net >= 0 else '순감'}")
+else:
+    st.info("VIP 데이터가 없습니다. 사이드바 그룹 필터에 VIP를 포함해 주세요.")
 
 # ════════════════════════════════════════════════════════════
 # 2. 앱푸시 도달률 & 앱 미보유/삭제 (DAU 핵심)
@@ -830,6 +787,49 @@ for grp in sel_groups:
          if neg_net else "전 등급 구독 순증 — 현 푸시 유지 흐름은 양호."),
     ]
     insight(bullets, "warn" if (snap["reach"].min() < 40 or neg_net) else "")
+
+# ════════════════════════════════════════════════════════════
+# 1. 그룹 비교 (VIP vs 일반)
+# ════════════════════════════════════════════════════════════
+section("그룹 비교 — VIP (일반은 참고)",
+        "본 진단 목표는 VIP DAU · 일반은 범위 밖 참고용(별도 관제 대상)", anchor="sec-group")
+gcols = st.columns(2)
+gsnap = {}
+for col, grp in zip(gcols, ["VIP", "일반"]):
+    gs = group_snapshot(grp, fw_d_last, fl_d, fw_d)
+    gsnap[grp] = gs
+    share = (gs["unreach"] / gs["act_push"] * 100) if gs["act_push"] else 0
+    cn = gs["chnet"]
+    _ref = ' <span style="font-size:11px;color:#aaa">(참고·범위 밖)</span>' if grp == "일반" else ""
+    with col:
+        st.markdown(
+            f'<div class="metric-card" style="border-left-color:{GROUP_COLOR[grp]}">'
+            f'<div class="metric-value" style="font-size:19px">{grp}{_ref} '
+            f'<span style="font-size:13px;color:#888">({", ".join(GROUPS[grp])})</span></div>'
+            f'<div class="metric-sub">유효회원 {fnum(gs["act"])} → 수신동의 <b>{gs["consent"]:.1f}%</b> '
+            f'→ 타겟팅가능 <b>{gs["reach"]:.1f}%</b> ({fnum(gs["tot_push"])})</div>'
+            f'<div class="metric-sub">앱 미보유/삭제 <b>{fnum(gs["unreach"])}</b> ({share:.0f}%)</div>'
+            f'<div class="metric-sub">증감 — PUSH <b>{fsigned(cn.get("PUSH",0))}</b> · '
+            f'SMS <b>{fsigned(cn.get("SMS",0))}</b> · EMAIL <b>{fsigned(cn.get("EMAIL",0))}</b></div>'
+            f'</div>', unsafe_allow_html=True)
+
+# 그룹별 도달률 일별 추이
+grp_daily = (fw_d.groupby(["date", "group"]).agg(tp=("tot_push", "sum"), ap=("act_push", "sum")).reset_index())
+grp_daily["reach"] = np.where(grp_daily["ap"] > 0, grp_daily["tp"] / grp_daily["ap"] * 100, 0)
+figr = px.line(grp_daily, x="date", y="reach", color="group", markers=True,
+               color_discrete_map=GROUP_COLOR, labels={"reach": "앱푸시 도달률(%)", "date": "일자", "group": "그룹"})
+figr.update_layout(height=320, margin=dict(t=20, b=10), hovermode="x unified", legend_title_text="")
+plot(figr, "그룹별 앱푸시 도달률 추이")
+
+if "VIP" in gsnap:
+    v = gsnap["VIP"]
+    vp = v["chnet"].get("PUSH", 0)
+    v_share = (v["unreach"] / v["act_push"] * 100) if v["act_push"] else 0
+    insight([
+        f"VIP는 앱 미보유/삭제 <b>{fnum(v['unreach'])}명(동의자의 {v_share:.0f}%)</b>이 도달을 막음 — "
+        f"본 진단의 목표는 <b>VIP DAU</b>이므로 판단·액션은 VIP 기준으로 한정.",
+        f"VIP PUSH <b>{fsigned(vp)}</b>({'순감' if vp < 0 else '정체'}) → VIP 전용 재설치·리텐션이 과제.",
+    ])
 
 # ════════════════════════════════════════════════════════════
 # 0.5 장기 추세 (전체·등급무관) — 별도 히스토리 데이터(25.1.1~)
