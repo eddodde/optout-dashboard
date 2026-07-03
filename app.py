@@ -1075,17 +1075,17 @@ st.markdown("""
 <tr style="border-bottom:1px solid #E0DED6">
 <td style="padding:10px"><b>구매의도·전환 약화</b> <span style="font-size:10px;color:#999">사유</span><div style="font-size:11px;color:#777;margin-top:2px">상품을 봐도 구매로 이어지지 않음(장바구니·주문 감소, Summ 1.0). 상품·가격 경쟁력 → 상품·기획 연계.</div></td>
 <td style="padding:10px;text-align:center"><span style="background:#C9C7BD;color:#2C2C2A;padding:2px 10px;border-radius:10px">높음</span></td>
-<td style="padding:10px;text-align:center;color:#999">— <div style="font-size:11px">CRM 밖</div></td>
+<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">~81%</span><div style="font-size:11px;color:#888;margin-top:3px">상품·기획 영역</div></td>
 </tr>
 <tr style="border-bottom:1px solid #E0DED6;background:#FEF7E9">
 <td style="padding:10px"><b>행동 시점 정밀도 · 발송 관련성</b> <span style="font-size:10px;color:#B57200">매트릭스</span><div style="font-size:11px;color:#777;margin-top:2px">고객 행동이 하루 뒤(D-1)에야 발송에 반영돼 관심이 식은 뒤 도착. 실시간 전환 시 개선 여지. ← 다음 액션</div></td>
 <td style="padding:10px;text-align:center"><span style="background:#E0DED6;color:#444441;padding:2px 10px;border-radius:10px">중간</span></td>
-<td style="padding:10px;text-align:center"><span style="background:#FAC775;color:#633806;padding:2px 10px;border-radius:10px">최대 ~45%</span><div style="font-size:11px;color:#888;margin-top:3px">앱푸시 완전 회복 시</div></td>
+<td style="padding:10px;text-align:center"><span style="background:#FAC775;color:#633806;padding:2px 10px;border-radius:10px">~45%</span><div style="font-size:11px;color:#888;margin-top:3px">앱푸시 회복 시</div></td>
 </tr>
 <tr style="border-bottom:1px solid #E0DED6">
 <td style="padding:10px"><b>미보유 재설치 · 채널 도달</b> <span style="font-size:10px;color:#B57200">매트릭스</span><div style="font-size:11px;color:#777;margin-top:2px">앱이 없는 고객은 방문 자체가 불가. 재설치 전환율이 낮아(10% 전환도 손익분기) 회복 폭 제한.</div></td>
 <td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
-<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">소폭</span><div style="font-size:11px;color:#888;margin-top:3px">재설치 저조</div></td>
+<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">~10%</span><div style="font-size:11px;color:#888;margin-top:3px">재설치 1% 가정</div></td>
 </tr>
 <tr style="border-bottom:1px solid #E0DED6">
 <td style="padding:10px"><b>전관행사 · 발송량 · 휴면 자동화</b> <span style="font-size:10px;color:#B57200">매트릭스</span><div style="font-size:11px;color:#777;margin-top:2px">이미 최대로 운영 중이라 추가 여력 없음. 전관행사도 DAU 견인 △0.1%(사실상 0, Summ 1.2).</div></td>
@@ -1095,14 +1095,14 @@ st.markdown("""
 <tr>
 <td style="padding:10px"><b>시장·플랫폼 전반</b> <span style="font-size:10px;color:#999">외생</span><div style="font-size:11px;color:#777;margin-top:2px">경쟁사 포함 업계 전반 방문 감소(전 등급 DAU 동반 하락). CRM 통제 밖 — 방어폭 모니터링.</div></td>
 <td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
-<td style="padding:10px;text-align:center;color:#999">— <div style="font-size:11px">외생</div></td>
+<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">외생</span><div style="font-size:11px;color:#888;margin-top:3px">CRM 통제 불가</div></td>
 </tr>
 </tbody></table>
 """, unsafe_allow_html=True)
-st.caption("커버(상한) = 해당 요인이 역신장에서 차지하는 몫이 곧 개선 상한(자기 유발분 이내). 기여는 높음/중간/낮음 판단 · 실제 회복폭은 파일럿 실측. 재설치 레버 상세는 결론 하단 시뮬레이터.")
+st.caption("커버 = 역신장(=100%) 대비 최대 회복률(상한). 채널 기여 분해 기준(자발 감소↔구매의도 ~81%, 앱푸시 ~45%) · 재설치는 1% 가정 · 실제 회복폭은 파일럿 실측.")
 insight([
-    "CRM에서 <b>개선 여지가 남은 건 '행동 시점 정밀도(D-1→실시간)' — 커버 상한 ~45%</b>(앱푸시 몫). 운영 중 레버(전관행사·발송량 등)는 이미 소진(~0%).",
-    "기여 1위 <b>구매의도 약화</b>는 상품·기획 영역(CRM 밖) → CRM 최선은 접점 개선으로 <b>하락 방어(반전 아님)</b>.",
+    "숫자로 보면 커버가 큰 건 <b>구매의도(~81%)</b>지만 상품·기획 영역 → CRM이 직접 못 함. CRM에서 실제 당길 수 있는 건 <b>행동 시점 정밀도(~45%)</b> 하나.",
+    "운영 중 레버(전관행사·발송량 등)는 이미 소진(~0%) → CRM 최선은 접점 개선으로 <b>하락 방어(반전 아님)</b>. 재설치(~10%) 상세는 결론 하단 시뮬레이터.",
 ])
 
 # ════════════════════════════════════════════════════════════
