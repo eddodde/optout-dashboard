@@ -579,25 +579,39 @@ if up_dau is not None or up_chdau is not None:
                 p0, p1 = mon["PUSH"].iloc[0], mon["PUSH"].iloc[-1]
                 dau_sum.update(push_chg=(p1 / p0 - 1) * 100 if p0 else 0,
                                push_share=mon["push_share"].iloc[-1])
-                _scale = st.radio("표시", ["지수 (시작월=100, 추세 비교)", "절대값 (명)"],
-                                  horizontal=True, key="pushdau_scale", label_visibility="collapsed")
+                cga, cgb = st.columns(2)
+                with cga:
+                    _gmode = st.radio("묶음", ["Owned vs Paid", "채널별"], horizontal=True, key="dau_gmode")
+                with cgb:
+                    _scale = st.radio("표시", ["지수(시작월=100)", "절대값(명)"], horizontal=True, key="pushdau_scale")
                 _idx = _scale.startswith("지수")
-                _series = [("TOTAL", "VIP 전체 DAU", "#4C72B0"), ("PUSH", "앱푸시(owned)", "#DD8452"),
-                           ("직접", "직접(자발)", "#55A868"), ("광고", "광고(유료)", "#8172B3")]
+                OWNED = ["직접", "PUSH", "EP", "미디어커머스"]; PAID = ["광고", "브랜드광고", "제휴"]
+                if _gmode.startswith("Owned"):
+                    ow = mon[[c for c in OWNED if c in mon.columns]].sum(axis=1)
+                    pdd = mon[[c for c in PAID if c in mon.columns]].sum(axis=1)
+                    _series = [("Owned (자발·앱푸시·직접 등)", ow, "#DD8452"), ("Paid (광고·제휴)", pdd, "#8172B3")]
+                else:
+                    _cols = [("TOTAL", "VIP 전체", "#4C72B0"), ("PUSH", "앱푸시(owned)", "#DD8452"),
+                             ("직접", "직접(자발)", "#55A868"), ("광고", "광고(유료)", "#8172B3")]
+                    _series = [(nm, mon[cc], col) for cc, nm, col in _cols if cc in mon.columns]
                 figp = go.Figure()
-                for _cc, _nm, _col in _series:
-                    if _cc in mon.columns:
-                        _y = mon[_cc] / mon[_cc].iloc[0] * 100 if _idx else mon[_cc]
-                        figp.add_scatter(x=mon.index, y=_y, name=_nm, mode="lines+markers",
-                                         line=dict(color=_col, width=2.5))
+                for _nm, _s, _col in _series:
+                    _y = _s / _s.iloc[0] * 100 if _idx else _s
+                    figp.add_scatter(x=mon.index, y=_y, name=_nm, mode="lines+markers", line=dict(color=_col, width=2.5))
                 if _idx:
                     figp.add_hline(y=100, line=dict(color="#bbb", width=1, dash="dot"))
                 figp.update_layout(height=340, margin=dict(t=10, b=10), hovermode="x unified",
                                    legend_title_text="", yaxis=dict(title="지수 (시작월=100)" if _idx else "DAU(명)"))
-                plot(figp, "VIP DAU 채널별 유입 추세 (B2B 제외)")
-                if _idx:
-                    st.caption("지수(시작월=100): 자발 채널(앱푸시·직접)은 하락하는데 광고(유료)만 상승 → 빠지는 자발 방문을 유료로 방어하는 구조. "
-                               "※ 채널 DAU는 중복 집계(한 방문이 복수 채널에 잡힘)라 합=전체가 아님 — '유입 경로별 추세'로 해석.")
+                plot(figp, "VIP DAU 유입 추세 — Owned vs Paid (B2B 제외)" if _gmode.startswith("Owned")
+                     else "VIP DAU 채널별 유입 추세 (B2B 제외)")
+                if _gmode.startswith("Owned"):
+                    _ow = mon[[c for c in OWNED if c in mon.columns]].sum(axis=1)
+                    _pd = mon[[c for c in PAID if c in mon.columns]].sum(axis=1)
+                    _ps0 = _pd.iloc[0] / (_ow.iloc[0] + _pd.iloc[0]) * 100
+                    _ps1 = _pd.iloc[-1] / (_ow.iloc[-1] + _pd.iloc[-1]) * 100
+                    st.caption(f"자발(Owned) {(_ow.iloc[-1]/_ow.iloc[0]-1)*100:+.0f}% · 유료(Paid) {(_pd.iloc[-1]/_pd.iloc[0]-1)*100:+.0f}% "
+                               f"→ **유료 의존도 {_ps0:.0f}% → {_ps1:.0f}%**. 빠지는 자발 방문을 유료로 방어하는 구조.")
+                st.caption("※ 채널 DAU는 중복 집계(한 방문이 복수 채널에 잡힘)라 합=전체 아님 — '유입 경로별 추세'로 해석.")
                 if anom_txt:
                     st.caption(anom_txt + " — 데이터팀 확인 권장")
                 yoy_line = ""
