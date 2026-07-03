@@ -580,9 +580,10 @@ if up_dau is not None or up_chdau is not None:
                 dau_sum.update(push_chg=(p1 / p0 - 1) * 100 if p0 else 0,
                                push_share=mon["push_share"].iloc[-1])
                 figp = go.Figure()
-                figp.add_bar(x=mon.index, y=mon["PUSH"], name="앱푸시 DAU", marker_color="#DD8452", opacity=0.55)
+                figp.add_scatter(x=mon.index, y=mon["PUSH"], name="앱푸시 DAU", mode="lines+markers",
+                                 line=dict(color="#DD8452", width=2.5))
                 figp.add_scatter(x=mon.index, y=mon["push_share"], name="푸시 비중(%)", yaxis="y2",
-                                 mode="lines+markers", line=dict(color="#8C3A3A", width=2.5))
+                                 mode="lines+markers", line=dict(color="#8C3A3A", width=2.5, dash="dot"))
                 figp.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified",
                                    legend_title_text="", yaxis=dict(title="앱푸시 DAU(명)"),
                                    yaxis2=dict(title="VIP DAU 내 비중(%)", overlaying="y", side="right",
