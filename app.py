@@ -580,15 +580,13 @@ if up_dau is not None or up_chdau is not None:
                 dau_sum.update(push_chg=(p1 / p0 - 1) * 100 if p0 else 0,
                                push_share=mon["push_share"].iloc[-1])
                 figp = go.Figure()
-                figp.add_scatter(x=mon.index, y=mon["PUSH"], name="앱푸시 DAU", mode="lines+markers",
+                figp.add_scatter(x=mon.index, y=mon["TOTAL"], name="VIP 전체 DAU", mode="lines+markers",
+                                 line=dict(color="#4C72B0", width=2.5))
+                figp.add_scatter(x=mon.index, y=mon["PUSH"], name="앱푸시 유입 DAU", mode="lines+markers",
                                  line=dict(color="#DD8452", width=2.5))
-                figp.add_scatter(x=mon.index, y=mon["push_share"], name="푸시 비중(%)", yaxis="y2",
-                                 mode="lines+markers", line=dict(color="#8C3A3A", width=2.5, dash="dot"))
                 figp.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified",
-                                   legend_title_text="", yaxis=dict(title="앱푸시 DAU(명)"),
-                                   yaxis2=dict(title="VIP DAU 내 비중(%)", overlaying="y", side="right",
-                                               showgrid=False, tickformat=".1f"))
-                plot(figp, "앱푸시 유입 DAU 추세 (VIP · B2B 제외)")
+                                   legend_title_text="", yaxis=dict(title="DAU(명)"))
+                plot(figp, "VIP 전체 DAU vs 앱푸시 유입 DAU (B2B 제외)")
                 if anom_txt:
                     st.caption(anom_txt + " — 데이터팀 확인 권장")
                 yoy_line = ""
