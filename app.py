@@ -1062,73 +1062,48 @@ st.markdown("""
 st.caption("주황 = 미착수·부분(남은 레버) · 회색 = 운영 중. 세로축 영향도는 판단(데이터 아님). "
            "운영 중 레버의 DAU 효과는 데이터상 제한적(전관행사 견인 △0.1%, 앱푸시 6회/일 포화) → 남은 착수 대상은 행동 시점 정밀도(현 D-1)·발송 관련성.")
 
-st.markdown('<div style="font-weight:700;font-size:15px;margin:16px 0 4px">📉 역신장 요인별 기여 & 개선 여력 (위 매트릭스 요소를 기여 큰 순으로)</div>',
+st.markdown('<div style="font-weight:700;font-size:15px;margin:16px 0 4px">📉 역신장 요인별 기여 & 개선 시 커버 (매트릭스 요소 · 기여 큰 순)</div>',
             unsafe_allow_html=True)
 st.markdown("""
-<table style="width:100%;max-width:760px;border-collapse:collapse;font-size:12.5px;color:#2C2C2A">
+<table style="width:100%;max-width:800px;border-collapse:collapse;font-size:12.5px;color:#2C2C2A">
 <thead><tr style="background:#EDEBE4;color:#444441">
 <th style="text-align:left;padding:8px 10px">요소</th>
 <th style="padding:8px 10px;white-space:nowrap">역신장 기여</th>
-<th style="padding:8px 10px;white-space:nowrap">개선 여력</th>
+<th style="padding:8px 10px;white-space:nowrap">개선 시 커버(상한)</th>
 </tr></thead>
 <tbody>
 <tr style="border-bottom:1px solid #E0DED6">
 <td style="padding:10px"><b>구매의도·전환 약화</b> <span style="font-size:10px;color:#999">사유</span><div style="font-size:11px;color:#777;margin-top:2px">상품을 봐도 구매로 이어지지 않음(장바구니·주문 감소, Summ 1.0). 상품·가격 경쟁력 → 상품·기획 연계.</div></td>
 <td style="padding:10px;text-align:center"><span style="background:#C9C7BD;color:#2C2C2A;padding:2px 10px;border-radius:10px">높음</span></td>
-<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
+<td style="padding:10px;text-align:center;color:#999">— <div style="font-size:11px">CRM 밖</div></td>
 </tr>
 <tr style="border-bottom:1px solid #E0DED6;background:#FEF7E9">
 <td style="padding:10px"><b>행동 시점 정밀도 · 발송 관련성</b> <span style="font-size:10px;color:#B57200">매트릭스</span><div style="font-size:11px;color:#777;margin-top:2px">고객 행동이 하루 뒤(D-1)에야 발송에 반영돼 관심이 식은 뒤 도착. 실시간 전환 시 개선 여지. ← 다음 액션</div></td>
 <td style="padding:10px;text-align:center"><span style="background:#E0DED6;color:#444441;padding:2px 10px;border-radius:10px">중간</span></td>
-<td style="padding:10px;text-align:center"><span style="background:#FAC775;color:#633806;padding:2px 10px;border-radius:10px">높음</span></td>
+<td style="padding:10px;text-align:center"><span style="background:#FAC775;color:#633806;padding:2px 10px;border-radius:10px">최대 ~45%</span><div style="font-size:11px;color:#888;margin-top:3px">앱푸시 완전 회복 시</div></td>
 </tr>
 <tr style="border-bottom:1px solid #E0DED6">
 <td style="padding:10px"><b>미보유 재설치 · 채널 도달</b> <span style="font-size:10px;color:#B57200">매트릭스</span><div style="font-size:11px;color:#777;margin-top:2px">앱이 없는 고객은 방문 자체가 불가. 재설치 전환율이 낮아(10% 전환도 손익분기) 회복 폭 제한.</div></td>
 <td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
-<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
+<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">소폭</span><div style="font-size:11px;color:#888;margin-top:3px">재설치 저조</div></td>
 </tr>
 <tr style="border-bottom:1px solid #E0DED6">
 <td style="padding:10px"><b>전관행사 · 발송량 · 휴면 자동화</b> <span style="font-size:10px;color:#B57200">매트릭스</span><div style="font-size:11px;color:#777;margin-top:2px">이미 최대로 운영 중이라 추가 여력 없음. 전관행사도 DAU 견인 △0.1%(사실상 0, Summ 1.2).</div></td>
 <td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
-<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
+<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">~0%</span><div style="font-size:11px;color:#888;margin-top:3px">이미 소진</div></td>
 </tr>
 <tr>
 <td style="padding:10px"><b>시장·플랫폼 전반</b> <span style="font-size:10px;color:#999">외생</span><div style="font-size:11px;color:#777;margin-top:2px">경쟁사 포함 업계 전반 방문 감소(전 등급 DAU 동반 하락). CRM 통제 밖 — 방어폭 모니터링.</div></td>
 <td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
-<td style="padding:10px;text-align:center"><span style="background:#F1EFE8;color:#5F5E5A;padding:2px 10px;border-radius:10px">낮음</span></td>
+<td style="padding:10px;text-align:center;color:#999">— <div style="font-size:11px">외생</div></td>
 </tr>
 </tbody></table>
 """, unsafe_allow_html=True)
-st.caption("역신장 기여·개선 여력은 높음/중간/낮음 3단계 판단(데이터 참고). '매트릭스'=위 2×2 요소 · '사유/외생'=CRM 밖 요인. 실제 효과는 파일럿 실측.")
+st.caption("커버(상한) = 해당 요인이 역신장에서 차지하는 몫이 곧 개선 상한(자기 유발분 이내). 기여는 높음/중간/낮음 판단 · 실제 회복폭은 파일럿 실측. 재설치 레버 상세는 결론 하단 시뮬레이터.")
 insight([
-    "매트릭스의 운영 중 레버(전관행사·발송량·휴면·도달)는 <b>이미 소진 → 개선 여력 낮음</b>. 여력이 남은 유일한 CRM 레버는 <b>행동 시점 정밀도(D-1→실시간)</b>.",
-    "역신장 기여가 가장 큰 <b>구매의도 약화</b>는 상품·기획 영역(CRM 여력 낮음) → CRM 몫은 <b>접점 개선으로 하락 방어</b>(반전 아님).",
+    "CRM에서 <b>개선 여지가 남은 건 '행동 시점 정밀도(D-1→실시간)' — 커버 상한 ~45%</b>(앱푸시 몫). 운영 중 레버(전관행사·발송량 등)는 이미 소진(~0%).",
+    "기여 1위 <b>구매의도 약화</b>는 상품·기획 영역(CRM 밖) → CRM 최선은 접점 개선으로 <b>하락 방어(반전 아님)</b>.",
 ])
-
-st.markdown('<div style="font-weight:700;font-size:15px;margin:16px 0 2px">🎛 시뮬레이션 ① — 앱푸시 레버(행동 시점 정밀도) 개선 시</div>',
-            unsafe_allow_html=True)
-if dau_sum.get("yoy_push_prev"):
-    _tp, _tn = dau_sum["yoy_total_prev"], dau_sum["yoy_total_now"]
-    _pp, _pn = dau_sum["yoy_push_prev"], dau_sum["yoy_push_now"]
-    _tdecl, _pdecl = _tp - _tn, _pp - _pn
-    _ceiling = _pdecl / _tdecl * 100 if _tdecl else 0
-    st.caption(f"정밀 발송으로 <b>앱푸시 DAU를 전년 대비 하락분({fnum(_pdecl)}명) 중 얼마나 되돌릴지</b> 가정 — 슬라이더 조정.")
-    rr = st.slider("앱푸시 DAU 회복률 (%)", 0, 100, 30, 5, key="push_sim",
-                   help=f"앱푸시가 역신장에서 차지하는 몫이 {_ceiling:.0f}% → 100% 회복해도 커버 상한은 {_ceiling:.0f}%")
-    _lift = _pdecl * rr / 100
-    _newdau = _tn + _lift
-    _nowyoy = (_tn / _tp - 1) * 100
-    _newyoy = (_newdau / _tp - 1) * 100
-    _cover = _lift / _tdecl * 100 if _tdecl else 0
-    s1, s2, s3 = st.columns(3)
-    with s1: metric_card("앱푸시 DAU 회복", f"+{fnum(_lift)}", f"하락분 {fnum(_pdecl)} 중 {rr}%")
-    with s2: metric_card("역신장 커버", f"{_cover:.0f}%", f"전체 하락 {fnum(_tdecl)} 대비")
-    with s3: metric_card("VIP DAU 전년비", f"{_nowyoy:+.1f}% → {_newyoy:+.1f}%",
-                         "역신장 폭 축소" if _newyoy > _nowyoy else "—")
-    st.caption(f"※ 커버 상한 {_ceiling:.0f}%(앱푸시 몫) — 완전 회복해도 그 이상 불가. 실제 회복폭은 파일럿 실측. "
-               "미보유 재설치 레버의 커버율은 결론 하단 '시뮬레이션 ②' 참조.")
-else:
-    st.caption("채널별 DAU 파일 업로드 시 시뮬레이션이 활성화됩니다.")
 
 # ════════════════════════════════════════════════════════════
 # 4.5 결론 — 인사이트·시사점·액션 (컨설팅식 종합)
