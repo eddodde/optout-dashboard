@@ -1021,37 +1021,37 @@ st.markdown("""
 st.markdown('<div style="font-weight:700;font-size:15px;margin:14px 0 2px">🎛 CRM 레버 인벤토리 — 영향도(판단) × 착수 여부</div>',
             unsafe_allow_html=True)
 st.markdown("""
-<svg width="100%" viewBox="0 0 680 510" role="img" style="font-family:'Noto Sans KR','Malgun Gothic',sans-serif">
+<svg width="640" height="300" viewBox="0 0 640 300" role="img" preserveAspectRatio="xMidYMid meet" style="max-width:100%;height:auto;font-family:'Noto Sans KR','Malgun Gothic',sans-serif;display:block">
 <title>CRM 레버 영향도 × 착수여부 매트릭스</title>
-<line x1="352" y1="66" x2="352" y2="450" stroke="#B4B2A9" stroke-width="1"/>
-<line x1="66" y1="260" x2="636" y2="260" stroke="#B4B2A9" stroke-width="1"/>
-<text transform="rotate(-90 44 258)" x="44" y="258" text-anchor="middle" fill="#5F5E5A" font-size="11">← 낮음    영향도 (판단)    높음 →</text>
-<text x="210" y="474" text-anchor="middle" fill="#5F5E5A" font-size="11">미착수 · 부분</text>
-<text x="500" y="474" text-anchor="middle" fill="#5F5E5A" font-size="11">운영 중</text>
-<text x="352" y="496" text-anchor="middle" fill="#2C2C2A" font-size="12" font-weight="600">착수 여부</text>
-<text x="76" y="88" fill="#854F0B" font-size="12" font-weight="600">남은 프런티어 · 다음 액션</text>
-<text x="372" y="88" fill="#5F5E5A" font-size="12">이미 운영 중 · 여력 소진</text>
-<rect x="76" y="98" width="262" height="52" rx="6" fill="#FAC775" stroke="#854F0B" stroke-width="2"/>
-<text x="88" y="120" fill="#412402" font-size="13" font-weight="600">행동 시점 정밀도</text>
-<text x="88" y="139" fill="#633806" font-size="11">D-1 → 실시간 · 요청 시 착수 가능</text>
-<rect x="76" y="162" width="262" height="46" rx="6" fill="#FAEEDA" stroke="#BA7517" stroke-width="1"/>
-<text x="88" y="182" fill="#633806" font-size="13" font-weight="600">발송 관련성·피로도 재배분</text>
-<text x="88" y="199" fill="#854F0B" font-size="11">6회를 양이 아닌 질로</text>
-<rect x="372" y="98" width="260" height="44" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
-<text x="384" y="117" fill="#444441" font-size="13" font-weight="600">혜택·프로모션 (전관행사)</text>
-<text x="384" y="133" fill="#5F5E5A" font-size="11">최대치 · 소진</text>
-<rect x="372" y="150" width="260" height="44" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
-<text x="384" y="169" fill="#444441" font-size="13" font-weight="600">휴면·이탈 타겟 자동화</text>
-<text x="384" y="185" fill="#5F5E5A" font-size="11">상시 운영 중</text>
-<rect x="372" y="202" width="260" height="44" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
-<text x="384" y="221" fill="#444441" font-size="13" font-weight="600">채널 도달 (활성자 커버)</text>
-<text x="384" y="237" fill="#5F5E5A" font-size="11">활성엔 거의 도달</text>
-<rect x="76" y="292" width="262" height="46" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
-<text x="88" y="312" fill="#444441" font-size="13" font-weight="600">미보유 재설치</text>
-<text x="88" y="328" fill="#5F5E5A" font-size="11">부분 · 효과 바운드</text>
-<rect x="372" y="292" width="260" height="46" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
-<text x="384" y="312" fill="#444441" font-size="13" font-weight="600">발송량·빈도 (6회/일)</text>
-<text x="384" y="328" fill="#5F5E5A" font-size="11">포화 · 증량은 역효과</text>
+<line x1="330" y1="14" x2="330" y2="246" stroke="#B4B2A9" stroke-width="1"/>
+<line x1="60" y1="182" x2="628" y2="182" stroke="#B4B2A9" stroke-width="1"/>
+<text transform="rotate(-90 30 138)" x="30" y="138" text-anchor="middle" fill="#5F5E5A" font-size="10">← 낮음   영향도(판단)   높음 →</text>
+<text x="196" y="266" text-anchor="middle" fill="#5F5E5A" font-size="10">미착수 · 부분</text>
+<text x="480" y="266" text-anchor="middle" fill="#5F5E5A" font-size="10">운영 중</text>
+<text x="330" y="286" text-anchor="middle" fill="#2C2C2A" font-size="11" font-weight="600">착수 여부</text>
+<text x="60" y="26" fill="#854F0B" font-size="11" font-weight="600">남은 프런티어 · 다음 액션</text>
+<text x="352" y="26" fill="#5F5E5A" font-size="11">이미 운영 중 · 여력 소진</text>
+<rect x="60" y="36" width="250" height="46" rx="6" fill="#FAC775" stroke="#854F0B" stroke-width="2"/>
+<text x="72" y="56" fill="#412402" font-size="12" font-weight="600">행동 시점 정밀도</text>
+<text x="72" y="73" fill="#633806" font-size="10">D-1 → 실시간 · 요청 시 착수 가능</text>
+<rect x="60" y="90" width="250" height="42" rx="6" fill="#FAEEDA" stroke="#BA7517" stroke-width="1"/>
+<text x="72" y="109" fill="#633806" font-size="12" font-weight="600">발송 관련성·피로도 재배분</text>
+<text x="72" y="124" fill="#854F0B" font-size="10">6회를 양이 아닌 질로</text>
+<rect x="352" y="36" width="250" height="42" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
+<text x="364" y="54" fill="#444441" font-size="12" font-weight="600">혜택·프로모션 (전관행사)</text>
+<text x="364" y="69" fill="#5F5E5A" font-size="10">최대치 · 소진</text>
+<rect x="352" y="86" width="250" height="42" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
+<text x="364" y="104" fill="#444441" font-size="12" font-weight="600">휴면·이탈 타겟 자동화</text>
+<text x="364" y="119" fill="#5F5E5A" font-size="10">상시 운영 중</text>
+<rect x="352" y="136" width="250" height="42" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
+<text x="364" y="154" fill="#444441" font-size="12" font-weight="600">채널 도달 (활성자 커버)</text>
+<text x="364" y="169" fill="#5F5E5A" font-size="10">활성엔 거의 도달</text>
+<rect x="60" y="194" width="250" height="42" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
+<text x="72" y="212" fill="#444441" font-size="12" font-weight="600">미보유 재설치</text>
+<text x="72" y="227" fill="#5F5E5A" font-size="10">부분 · 효과 바운드</text>
+<rect x="352" y="194" width="250" height="42" rx="6" fill="#F1EFE8" stroke="#C9C7BD" stroke-width="1"/>
+<text x="364" y="212" fill="#444441" font-size="12" font-weight="600">발송량·빈도 (6회/일)</text>
+<text x="364" y="227" fill="#5F5E5A" font-size="10">포화 · 증량은 역효과</text>
 </svg>
 """, unsafe_allow_html=True)
 st.caption("※ 세로축 '영향도'는 데이터가 아닌 판단. 고영향 레버는 대부분 운영 중(여력 소진) → **미착수 프런티어(정밀도·관련성)**가 남은 통제 레버, 파일럿으로 실측.")
