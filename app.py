@@ -354,6 +354,15 @@ def drop_outliers(s, window=21, k=4.0):
     return out
 
 
+def drop_incomplete_months(s, cutoff):
+    """월초(MS) 인덱스의 시계열/프레임에서 '월말 > cutoff'인 집계 중 부분월을 제거.
+    (예: 7/1~7/8까지만 있는 7월은 MAU가 덜 쌓여 DAU/MAU 비율이 왜곡되므로 헤드라인·비율에서 제외)"""
+    if s is None or len(s) == 0 or cutoff is None:
+        return s
+    ends = s.index + pd.offsets.MonthEnd(0)
+    return s[ends <= pd.Timestamp(cutoff)]
+
+
 def trend_word(daily_series):
     """일별 시계열의 추세를 첫/끝 3일 평균 비교로 판정."""
     s = daily_series.dropna()
@@ -483,8 +492,10 @@ if up_dau is not None or up_chdau is not None:
         # ── (0) 채널별 일 DAU 먼저 파싱 (B2B 제외 = 진성 VIP, 내부 관리지표와 동일 기준)
         mon = None
         anom_txt = ""
+        cutoff = pd.Timestamp.today().normalize()   # 부분월 판정 기준(데이터 최신일)
         if up_chdau is not None:
             dc = load_dau_channel(up_chdau)
+            cutoff = dc["date"].max()   # 일 데이터가 있으면 실제 최신일을 기준으로
             # 단기 급증 구간(대형행사 등) 제외: TOTAL이 91일 롤링 중앙값의 1.6배 초과인 날
             # (예: 25.9.23~10.30 차수제 대형행사 — 평상시 추세·YoY 비교를 위해 제외, 양 연도 동일 규칙 적용)
             tot_d = dc[dc["channel"] == "TOTAL"].set_index("date")["value"].sort_index()
@@ -496,6 +507,7 @@ if up_dau is not None or up_chdau is not None:
                             f"({min(bad_days).date()} ~ {max(bad_days).date()}) — 평상시 추세 비교 기준")
             mon = (dc.groupby([pd.Grouper(key="date", freq="MS"), "channel"])["value"].mean()
                    .unstack().sort_index())
+            mon = drop_incomplete_months(mon, cutoff)   # 집계 중 부분월(예: 7/1~8) 제거
             if "TOTAL" in mon.columns and len(mon) >= 13 and mon["TOTAL"].iloc[-13]:
                 dau_sum["dau_yoy"] = (mon["TOTAL"].iloc[-1] / mon["TOTAL"].iloc[-13] - 1) * 100
                 dau_sum["dau_now"] = mon["TOTAL"].iloc[-1]
@@ -519,11 +531,10 @@ if up_dau is not None or up_chdau is not None:
 
             mau_s = vip_series("MAU")
             dau_in_file = vip_series("DAU")
-            # 집계 중인 말단 부분월 제거(월초 1~2일치) — MAU 급락으로 감지, DAU도 같은 달 제거
-            if len(mau_s) >= 2 and mau_s.iloc[-1] < 0.6 * mau_s.iloc[-2]:
-                partial_m = mau_s.index[-1]
-                mau_s = mau_s.iloc[:-1]
-                dau_in_file = dau_in_file[dau_in_file.index != partial_m]
+            # 집계 중인 말단 부분월 제거 — 달력 기준(월말 > 데이터 최신일이면 제외).
+            # MAU는 순방문자가 월초에 몰려 빨리 포화(sublinear)하므로 '하락 비율' 감지는 못 잡음 → 반드시 달력으로 판정.
+            mau_s = drop_incomplete_months(mau_s, cutoff)
+            dau_in_file = drop_incomplete_months(dau_in_file, cutoff)
             # 채널 파일(이상일 제외 후)이 있으면 우선 — 월별 파일 DAU는 25.10 중복집계 오염 포함
             if mon is not None and "TOTAL" in mon.columns:
                 dau_s, dau_basis = mon["TOTAL"], "채널 파일 DAU(B2B·이상일 제외)"
@@ -565,7 +576,9 @@ if up_dau is not None or up_chdau is not None:
                                        yaxis2=dict(title="DAU/MAU(%)", overlaying="y", side="right",
                                                    showgrid=False, tickformat=".1f"))
                     plot(figd, "VIP MAU는 성장하는데 방문 빈도(DAU/MAU)는 하락")
-                    st.caption(f"MAU=월별 파일(B2B 제외) · DAU={dau_basis} · 빈도는 두 시계열이 겹치는 구간만 표시 · 집계 중인 부분월은 자동 제외")
+                    _basis_m = pd.Timestamp(d1m.name).strftime("%Y-%m")
+                    st.caption(f"MAU=월별 파일(B2B 제외) · DAU={dau_basis} · 빈도는 두 시계열이 겹치는 구간만 표시 · "
+                               f"헤드라인·전년비·빈도는 마지막 완료월({_basis_m}) 기준(집계 중 부분월 자동 제외)")
                     insight([
                         f"VIP <b>MAU는 유지·증가</b>인데 DAU가 빠짐 → <b>DAU/MAU(방문 빈도)가 {d0m['ratio']:.0f}%→{d1m['ratio']:.0f}%</b>로 하락. "
                         "'앱 쓰는 사람이 줄어서'가 아니라 <b>덜 자주 와서</b> — 즉 빈도 문제.",
