@@ -565,8 +565,9 @@ if up_dau is not None or up_chdau is not None:
                                           if "dau_yoy" in dau_sum else dau_basis))
                     with k2: metric_card("VIP MAU (최근월)", fnum(mau_s.iloc[-1]),
                                          (f"전년비 {mau_yoy:+.1f}%" if mau_yoy is not None else "B2B 제외"))
-                    with k3: metric_card("DAU/MAU (방문 빈도)", f"{d1m['ratio']:.1f}%",
-                                         f"{d0m['ratio']:.1f}% → {d1m['ratio']:.1f}% (스티키니스)")
+                    with k3: metric_card("DAU/MAU (스티키니스)", f"{d1m['ratio']:.1f}%",
+                                         f"{d0m['ratio']:.1f}% → {d1m['ratio']:.1f}% "
+                                         f"(월평균 방문일수 ≈ {d0m['ratio']*30.4/100:.1f}일 → {d1m['ratio']*30.4/100:.1f}일)")
                     figd = go.Figure()
                     figd.add_bar(x=mau_s.index, y=mau_s.values, name="VIP MAU", marker_color="#c9d6e8", opacity=0.7)
                     figd.add_scatter(x=ov.index, y=ov["ratio"], name="DAU/MAU(%)", yaxis="y2",
@@ -575,12 +576,13 @@ if up_dau is not None or up_chdau is not None:
                                        legend_title_text="", yaxis=dict(title="VIP MAU(명)"),
                                        yaxis2=dict(title="DAU/MAU(%)", overlaying="y", side="right",
                                                    showgrid=False, tickformat=".1f"))
-                    plot(figd, "VIP MAU는 성장하는데 방문 빈도(DAU/MAU)는 하락")
+                    plot(figd, "VIP MAU는 성장하는데 스티키니스(DAU/MAU)는 하락")
                     _basis_m = pd.Timestamp(d1m.name).strftime("%Y-%m")
-                    st.caption(f"MAU=월별 파일(B2B 제외) · DAU={dau_basis} · 빈도는 두 시계열이 겹치는 구간만 표시 · "
-                               f"헤드라인·전년비·빈도는 마지막 완료월({_basis_m}) 기준(집계 중 부분월 자동 제외)")
+                    st.caption(f"MAU=월별 파일(B2B 제외) · DAU={dau_basis} · 스티키니스는 두 시계열이 겹치는 구간만 표시 · "
+                               f"헤드라인·전년비·스티키니스는 마지막 완료월({_basis_m}) 기준(집계 중 부분월 자동 제외)")
                     insight([
-                        f"VIP <b>MAU는 유지·증가</b>인데 DAU가 빠짐 → <b>DAU/MAU(방문 빈도)가 {d0m['ratio']:.0f}%→{d1m['ratio']:.0f}%</b>로 하락. "
+                        f"VIP <b>MAU는 유지·증가</b>인데 DAU가 빠짐 → <b>스티키니스(DAU/MAU)가 {d0m['ratio']:.0f}%→{d1m['ratio']:.0f}%</b>로 하락"
+                        f"(월평균 방문일수 ≈ {d0m['ratio']*30.4/100:.1f}일 → {d1m['ratio']*30.4/100:.1f}일). "
                         "'앱 쓰는 사람이 줄어서'가 아니라 <b>덜 자주 와서</b> — 즉 빈도 문제.",
                     ], "warn")
                 else:
@@ -588,7 +590,7 @@ if up_dau is not None or up_chdau is not None:
                                    labels={"value": "VIP MAU(명)", "date": "월"})
                     figd.update_layout(height=300, margin=dict(t=10, b=10), hovermode="x unified")
                     plot(figd, "VIP MAU 장기 추세 (B2B 제외)")
-                    st.caption("빈도(DAU/MAU) 계산엔 채널별 DAU 파일도 함께 업로드하세요.")
+                    st.caption("스티키니스(DAU/MAU) 계산엔 채널별 DAU 파일도 함께 업로드하세요.")
 
         # ── (2) 채널별 일 DAU: 앱푸시 DAU 하락
         if mon is not None:
@@ -1141,7 +1143,7 @@ if vip["act_push"]:
         if "dau_yoy" in dau_sum:
             _p.append(f"VIP DAU 전년비 <b>{dau_sum['dau_yoy']:+.0f}%</b>({dau_sum.get('yoy_basis','')} 기준)")
         if "stick1" in dau_sum:
-            _p.append(f"방문 빈도(DAU/MAU) <b>{dau_sum['stick0']:.0f}%→{dau_sum['stick1']:.0f}%</b>")
+            _p.append(f"스티키니스(DAU/MAU) <b>{dau_sum['stick0']:.0f}%→{dau_sum['stick1']:.0f}%</b>")
         if "push_chg" in dau_sum:
             _p.append(f"앱푸시 DAU <b>{dau_sum['push_chg']:+.0f}%</b>(VIP DAU의 ~{dau_sum.get('push_share',0):.0f}%)")
         if _p:
@@ -1159,7 +1161,7 @@ if vip["act_push"]:
         prob = []
         if "stick1" in dau_sum:
             prob.append(
-                f"DAU 하락의 실체는 <b>방문 빈도(DAU/MAU) 하락</b>({dau_sum['stick0']:.0f}%→{dau_sum['stick1']:.0f}%) — "
+                f"DAU 하락의 실체는 <b>스티키니스(DAU/MAU) 하락</b>({dau_sum['stick0']:.0f}%→{dau_sum['stick1']:.0f}%) — "
                 f"VIP MAU는 {dau_sum.get('mau_growth',0):+.0f}%로 <b>유지·증가</b>. '앱 쓰는 사람이 줄어서'(모수 축소)가 아님.")
         if "push_chg" in dau_sum:
             prob.append(
@@ -1215,7 +1217,7 @@ if vip["act_push"]:
                          help="미도달 스톡 중 캠페인으로 앱을 다시 설치·유지하는 비율")
     with sc2:
         stick_default = float(f"{dau_sum['stick1']:.0f}") if "stick1" in dau_sum else 29.0
-        stick = st.slider("재설치자 방문 빈도 가정 — DAU/MAU (%)", 5.0, 50.0,
+        stick = st.slider("재설치자 스티키니스 가정 — DAU/MAU (%)", 5.0, 50.0,
                           min(stick_default, 50.0) / 2, 1.0,
                           help="한 번 이탈했던 층이라 VIP 평균(약 "
                                f"{stick_default:.0f}%)보다 낮게 잡는 게 보수적입니다")
@@ -1242,7 +1244,7 @@ if vip["act_push"]:
             metric_card("VIP DAU 변화", f"{fnum(base_dau)} → {fnum(new_dau)}",
                         f"+{fnum(dau_lift)}명 (+{dau_lift/base_dau*100:.1f}%)")
         else:
-            metric_card("예상 DAU 리프트", f"+{fnum(dau_lift)}", f"빈도 {stick:.0f}% 가정")
+            metric_card("예상 DAU 리프트", f"+{fnum(dau_lift)}", f"스티키니스 {stick:.0f}% 가정")
     with m3:
         if yoy_after is not None:
             metric_card("전년비 변화", f"{yoy_now:+.1f}% → {yoy_after:+.1f}%",
@@ -1262,13 +1264,13 @@ if vip["act_push"]:
         need_lift = prev_dau_base - base_dau
         need_conv = need_lift / (vip["unreach"] * stick / 100) * 100
         breakeven_txt = (f"<b>역신장 0%(전년 수준 회복)</b>까지 필요한 리프트는 +{fnum(need_lift)} — "
-                         f"빈도 {stick:.0f}% 가정 시 재설치 전환율 <b>{need_conv:.1f}%</b>가 손익분기점.")
+                         f"스티키니스 {stick:.0f}% 가정 시 재설치 전환율 <b>{need_conv:.1f}%</b>가 손익분기점.")
 
     insight([
-        (f"전환 <b>{conv:.1f}%</b>·빈도 <b>{stick:.0f}%</b> 가정 시 VIP DAU <b>{fnum(base_dau)} → {fnum(new_dau)}</b>"
+        (f"전환 <b>{conv:.1f}%</b>·스티키니스 <b>{stick:.0f}%</b> 가정 시 VIP DAU <b>{fnum(base_dau)} → {fnum(new_dau)}</b>"
          f"(+{fnum(dau_lift)}), 전년비 <b>{yoy_now:+.1f}% → {yoy_after:+.1f}%</b>."
          if yoy_after is not None else
-         f"전환 <b>{conv:.1f}%</b>·빈도 <b>{stick:.0f}%</b> 가정 시 DAU <b>+{fnum(dau_lift)}</b>."),
+         f"전환 <b>{conv:.1f}%</b>·스티키니스 <b>{stick:.0f}%</b> 가정 시 DAU <b>+{fnum(dau_lift)}</b>."),
         breakeven_txt,
         "재설치자는 <b>푸시 타겟팅가능에도 편입</b> → 이후 푸시 발송으로 방문 빈도 제고 여지(선순환).",
         "<span style='color:#888'>※ 가정 기반 추정 — 재설치자의 실제 빈도·리텐션은 캠페인 후 실측으로 검증 필요.</span>",
