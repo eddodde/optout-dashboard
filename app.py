@@ -568,45 +568,49 @@ if up_dau is not None or up_chdau is not None:
                     with k3: metric_card("DAU/MAU (스티키니스)", f"{d1m['ratio']:.1f}%",
                                          f"{d0m['ratio']:.1f}% → {d1m['ratio']:.1f}% "
                                          f"(월평균 방문일수 ≈ {d0m['ratio']*30.4/100:.1f}일 → {d1m['ratio']*30.4/100:.1f}일)")
-                    figd = go.Figure()
-                    figd.add_bar(x=mau_s.index, y=mau_s.values, name="VIP MAU", marker_color="#c9d6e8", opacity=0.7)
-                    figd.add_scatter(x=ov.index, y=ov["ratio"], name="DAU/MAU(%)", yaxis="y2",
-                                     mode="lines+markers", line=dict(color="#C44E52", width=3))
-                    figd.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified",
-                                       legend_title_text="", yaxis=dict(title="VIP MAU(명)"),
-                                       yaxis2=dict(title="DAU/MAU(%)", overlaying="y", side="right",
-                                                   showgrid=False, tickformat=".1f"))
-                    plot(figd, "VIP MAU는 성장하는데 스티키니스(DAU/MAU)는 하락")
                     _basis_m = pd.Timestamp(d1m.name).strftime("%Y-%m")
-                    st.caption(f"MAU=월별 파일(B2B 제외) · DAU={dau_basis} · 스티키니스는 두 시계열이 겹치는 구간만 표시 · "
-                               f"헤드라인·전년비·스티키니스는 마지막 완료월({_basis_m}) 기준(집계 중 부분월 자동 제외)")
-
-                    # ── 전년 동월 오버레이: 같은 달끼리 포개서 연도 간 갭 확인
-                    ymet = st.radio("비교 지표", ["스티키니스(DAU/MAU)", "DAU", "MAU"],
-                                    horizontal=True, key="yoy_overlay_metric")
-                    if ymet.startswith("스티"):
-                        yser, ytitle, yfmt = ov["ratio"], "DAU/MAU(%)", ".1f"
-                    elif ymet == "DAU":
-                        yser, ytitle, yfmt = ov["DAU"], "VIP DAU(명)", ",.0f"
-                    else:
-                        yser, ytitle, yfmt = mau_s, "VIP MAU(명)", ",.0f"
-                    yov = yser.dropna().to_frame("v")
-                    yov["year"], yov["m"] = yov.index.year, yov.index.month
-                    yrs = sorted(yov["year"].unique())
-                    grays = ["#b9c6d8", "#8aa2c0", "#6b87ab"]   # 과거 연도(옅은→진한 회청)
-                    figy = go.Figure()
-                    for i, yr in enumerate(yrs):
-                        d = yov[yov["year"] == yr].sort_values("m")
-                        last = (yr == yrs[-1])
-                        figy.add_scatter(x=d["m"], y=d["v"], name=str(yr), mode="lines+markers",
-                                         line=dict(color="#C44E52" if last else grays[i % len(grays)],
-                                                   width=3 if last else 2))
-                    figy.update_layout(height=300, margin=dict(t=10, b=10), hovermode="x unified",
-                                       legend_title_text="", yaxis=dict(title=ytitle, tickformat=yfmt))
-                    figy.update_xaxes(tickmode="array", tickvals=list(range(1, 13)),
-                                      ticktext=[f"{m}월" for m in range(1, 13)], title=None)
-                    plot(figy, f"전년 동월 비교 — {ymet}")
-                    st.caption("빨강=최근 연도 · 회청=과거 연도 · 같은 달끼리 세로로 비교")
+                    cL, cR = st.columns(2)
+                    with cL:
+                        figd = go.Figure()
+                        figd.add_bar(x=mau_s.index, y=mau_s.values, name="VIP MAU", marker_color="#c9d6e8", opacity=0.7)
+                        figd.add_scatter(x=ov.index, y=ov["ratio"], name="DAU/MAU(%)", yaxis="y2",
+                                         mode="lines+markers", line=dict(color="#C44E52", width=3))
+                        figd.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified",
+                                           legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+                                           legend_title_text="", yaxis=dict(title="VIP MAU(명)"),
+                                           yaxis2=dict(title="DAU/MAU(%)", overlaying="y", side="right",
+                                                       showgrid=False, tickformat=".1f"))
+                        plot(figd, "VIP MAU는 성장하는데 스티키니스(DAU/MAU)는 하락")
+                        st.caption(f"MAU=월별 파일(B2B 제외) · DAU={dau_basis} · 스티키니스는 두 시계열이 겹치는 구간만 표시 · "
+                                   f"헤드라인·전년비·스티키니스는 마지막 완료월({_basis_m}) 기준(집계 중 부분월 자동 제외)")
+                    with cR:
+                        # 전년 동월 오버레이: 같은 달끼리 포개서 연도 간 갭 확인
+                        ymet = st.radio("비교 지표", ["스티키니스(DAU/MAU)", "DAU", "MAU"],
+                                        horizontal=True, key="yoy_overlay_metric")
+                        if ymet.startswith("스티"):
+                            yser, ytitle, yfmt = ov["ratio"], "DAU/MAU(%)", ".1f"
+                        elif ymet == "DAU":
+                            yser, ytitle, yfmt = ov["DAU"], "VIP DAU(명)", ",.0f"
+                        else:
+                            yser, ytitle, yfmt = mau_s, "VIP MAU(명)", ",.0f"
+                        yov = yser.dropna().to_frame("v")
+                        yov["year"], yov["m"] = yov.index.year, yov.index.month
+                        yrs = sorted(yov["year"].unique())
+                        grays = ["#b9c6d8", "#8aa2c0", "#6b87ab"]   # 과거 연도(옅은→진한 회청)
+                        figy = go.Figure()
+                        for i, yr in enumerate(yrs):
+                            d = yov[yov["year"] == yr].sort_values("m")
+                            last = (yr == yrs[-1])
+                            figy.add_scatter(x=d["m"], y=d["v"], name=str(yr), mode="lines+markers",
+                                             line=dict(color="#C44E52" if last else grays[i % len(grays)],
+                                                       width=3 if last else 2))
+                        figy.update_layout(height=320, margin=dict(t=10, b=10), hovermode="x unified",
+                                           legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+                                           legend_title_text="", yaxis=dict(title=ytitle, tickformat=yfmt))
+                        figy.update_xaxes(tickmode="array", tickvals=list(range(1, 13)),
+                                          ticktext=[f"{m}월" for m in range(1, 13)], title=None)
+                        plot(figy, f"전년 동월 비교 — {ymet}")
+                        st.caption("빨강=최근 연도 · 회청=과거 연도 · 같은 달끼리 세로로 비교")
 
                     insight([
                         f"VIP <b>MAU는 유지·증가</b>인데 DAU가 빠짐 → <b>스티키니스(DAU/MAU)가 {d0m['ratio']:.0f}%→{d1m['ratio']:.0f}%</b>로 하락"
