@@ -585,8 +585,8 @@ if up_dau is not None or up_chdau is not None:
                                    f"헤드라인·전년비·스티키니스는 마지막 완료월({_basis_m}) 기준(집계 중 부분월 자동 제외)")
                     with cR:
                         # 전년 동월 오버레이: 같은 달끼리 포개서 연도 간 갭 확인
-                        ymet = st.radio("비교 지표", ["스티키니스(DAU/MAU)", "DAU", "MAU"],
-                                        horizontal=True, key="yoy_overlay_metric")
+                        # (라디오는 차트 아래 배치 — 좌우 차트 시작 높이를 맞추기 위함)
+                        ymet = st.session_state.get("yoy_overlay_metric", "스티키니스(DAU/MAU)")
                         if ymet.startswith("스티"):
                             yser, ytitle, yfmt = ov["ratio"], "DAU/MAU(%)", ".1f"
                         elif ymet == "DAU":
@@ -610,6 +610,8 @@ if up_dau is not None or up_chdau is not None:
                         figy.update_xaxes(tickmode="array", tickvals=list(range(1, 13)),
                                           ticktext=[f"{m}월" for m in range(1, 13)], title=None)
                         plot(figy, f"전년 동월 비교 — {ymet}")
+                        st.radio("비교 지표", ["스티키니스(DAU/MAU)", "DAU", "MAU"],
+                                 horizontal=True, key="yoy_overlay_metric")
                         st.caption("빨강=최근 연도 · 회청=과거 연도 · 같은 달끼리 세로로 비교")
 
                     insight([
