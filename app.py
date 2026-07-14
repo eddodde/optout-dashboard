@@ -600,14 +600,13 @@ if up_dau is not None or up_chdau is not None:
                         last = (yr == yrs[-1])
                         figy.add_scatter(x=d["m"], y=d["v"], name=str(yr), mode="lines+markers",
                                          line=dict(color="#C44E52" if last else grays[i % len(grays)],
-                                                   width=3 if last else 2,
-                                                   dash=None if last else "dot"))
+                                                   width=3 if last else 2))
                     figy.update_layout(height=300, margin=dict(t=10, b=10), hovermode="x unified",
                                        legend_title_text="", yaxis=dict(title=ytitle, tickformat=yfmt))
                     figy.update_xaxes(tickmode="array", tickvals=list(range(1, 13)),
                                       ticktext=[f"{m}월" for m in range(1, 13)], title=None)
                     plot(figy, f"전년 동월 비교 — {ymet}")
-                    st.caption("실선(빨강)=최근 연도 · 점선(회청)=과거 연도 · 같은 달끼리 세로로 비교")
+                    st.caption("빨강=최근 연도 · 회청=과거 연도 · 같은 달끼리 세로로 비교")
 
                     insight([
                         f"VIP <b>MAU는 유지·증가</b>인데 DAU가 빠짐 → <b>스티키니스(DAU/MAU)가 {d0m['ratio']:.0f}%→{d1m['ratio']:.0f}%</b>로 하락"
