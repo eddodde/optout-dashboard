@@ -572,7 +572,8 @@ if up_dau is not None or up_chdau is not None:
                     # 헤드카피(섹션 결론 문장) — 그 아래 좌우 병렬 차트
                     st.markdown('<div style="font-weight:700;font-size:17px;margin:14px 0 2px">'
                                 'VIP MAU는 성장하는데 스티키니스(DAU/MAU)는 하락</div>', unsafe_allow_html=True)
-                    ymet = st.session_state.get("yoy_overlay_metric", "스티키니스(DAU/MAU)")
+                    ymet = st.radio("비교 지표(전년 동월 비교 차트)", ["스티키니스(DAU/MAU)", "DAU", "MAU"],
+                                    horizontal=True, key="yoy_overlay_metric")
                     cL, cR = st.columns(2)
                     with cL:
                         figd = go.Figure()
@@ -610,8 +611,6 @@ if up_dau is not None or up_chdau is not None:
                         figy.update_xaxes(tickmode="array", tickvals=list(range(1, 13)),
                                           ticktext=[f"{m}월" for m in range(1, 13)], title=None)
                         plot(figy, f"전년 동월 비교 — {ymet}")
-                    st.radio("비교 지표(전년 동월 비교 차트)", ["스티키니스(DAU/MAU)", "DAU", "MAU"],
-                             horizontal=True, key="yoy_overlay_metric")
                     st.caption(f"MAU=월별 파일(B2B 제외) · DAU={dau_basis} · 스티키니스는 두 시계열이 겹치는 구간만 표시 · "
                                f"헤드라인·전년비·스티키니스는 마지막 완료월({_basis_m}) 기준(집계 중 부분월 자동 제외) · "
                                f"전년 동월 비교: 빨강=최근 연도, 회청=과거 연도")
