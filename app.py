@@ -569,9 +569,20 @@ if up_dau is not None or up_chdau is not None:
                                          f"{d0m['ratio']:.1f}% → {d1m['ratio']:.1f}% "
                                          f"(월평균 방문일수 ≈ {d0m['ratio']*30.4/100:.1f}일 → {d1m['ratio']*30.4/100:.1f}일)")
                     _basis_m = pd.Timestamp(d1m.name).strftime("%Y-%m")
+                    # 가드 분기 — 데이터가 서사를 벗어나면 헤드카피·시사점이 자동 전환
+                    _mau_up = dau_sum["mau_growth"] >= 0
+                    _stick_up = d1m["ratio"] > d0m["ratio"]
+                    if _mau_up and not _stick_up:
+                        _head = "VIP MAU는 성장하는데 스티키니스(DAU/MAU)는 하락"
+                    elif not _mau_up and not _stick_up:
+                        _head = "⚠️ VIP MAU·스티키니스 동반 하락 — '빈도 문제' 전제 무너짐, 모수 재진단 필요"
+                    elif _mau_up and _stick_up:
+                        _head = "VIP MAU·스티키니스 동반 개선 — 회복 국면"
+                    else:
+                        _head = "MAU 감소 속 스티키니스 상승 — 저빈도층 이탈(믹스 효과) 가능성 점검 필요"
                     # 헤드카피(섹션 결론 문장) — 그 아래 좌우 병렬 차트
-                    st.markdown('<div style="font-weight:700;font-size:17px;margin:14px 0 2px">'
-                                'VIP MAU는 성장하는데 스티키니스(DAU/MAU)는 하락</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="font-weight:700;font-size:17px;margin:14px 0 2px">'
+                                f'{_head}</div>', unsafe_allow_html=True)
                     # 제목 줄(전체폭 한 줄): 좌 차트 제목 | 우 차트 제목 | 지표 라디오 — 아래 차트 시작 높이 정렬 유지
                     _tstyle = "font-weight:700;font-size:15px;margin:0"
                     tL, tR, tW = st.columns([2, 0.85, 1.15], vertical_alignment="center")
@@ -623,11 +634,29 @@ if up_dau is not None or up_chdau is not None:
                                f"헤드라인·전년비·스티키니스는 마지막 완료월({_basis_m}) 기준(집계 중 부분월 자동 제외) · "
                                f"전년 동월 비교: 빨강=최근 연도, 회청=과거 연도")
 
-                    insight([
-                        f"VIP <b>MAU는 유지·증가</b>인데 DAU가 빠짐 → <b>스티키니스(DAU/MAU)가 {d0m['ratio']:.0f}%→{d1m['ratio']:.0f}%</b>로 하락"
-                        f"(월평균 방문일수 ≈ {d0m['ratio']*30.4/100:.1f}일 → {d1m['ratio']*30.4/100:.1f}일). "
-                        "'앱 쓰는 사람이 줄어서'가 아니라 <b>덜 자주 와서</b> — 즉 빈도 문제.",
-                    ], "warn")
+                    _days_txt = (f"(월평균 방문일수 ≈ {d0m['ratio']*30.4/100:.1f}일 → {d1m['ratio']*30.4/100:.1f}일)")
+                    if _mau_up and not _stick_up:
+                        insight([
+                            f"VIP <b>MAU는 유지·증가({dau_sum['mau_growth']:+.1f}%)</b>인데 DAU가 빠짐 → "
+                            f"<b>스티키니스(DAU/MAU)가 {d0m['ratio']:.0f}%→{d1m['ratio']:.0f}%</b>로 하락{_days_txt}. "
+                            "'앱 쓰는 사람이 줄어서'가 아니라 <b>덜 자주 와서</b> — 즉 빈도 문제.",
+                        ], "warn")
+                    elif not _mau_up and not _stick_up:
+                        insight([
+                            f"<b>MAU까지 감소 전환({dau_sum['mau_growth']:+.1f}%)</b> — 기존 진단('모수는 유지, 빈도가 문제')의 "
+                            "전제가 무너짐. <b>모수 축소 원인(등급 수불·이탈) 재진단이 선행</b>되어야 하며, "
+                            "빈도 레버 단독으로는 설명·대응 불가.",
+                        ], "warn")
+                    elif _mau_up and _stick_up:
+                        insight([
+                            f"MAU({dau_sum['mau_growth']:+.1f}%)·스티키니스({d0m['ratio']:.0f}%→{d1m['ratio']:.0f}%) <b>동반 개선</b>{_days_txt}. "
+                            "회복 지속 여부 확인 필요 — 실행 레버(정밀도·도달)의 기여인지 시장 요인인지 분리 검증 권장.",
+                        ], "ok")
+                    else:
+                        insight([
+                            f"MAU는 감소({dau_sum['mau_growth']:+.1f}%)인데 스티키니스는 상승({d0m['ratio']:.0f}%→{d1m['ratio']:.0f}%) — "
+                            "<b>저빈도층이 먼저 이탈해 평균이 올라간 믹스 효과</b>일 수 있음. 개선으로 오독 금지, 모수 이탈 점검 필요.",
+                        ], "warn")
                 else:
                     figd = px.line(mau_s.reset_index(), x="date", y="value",
                                    labels={"value": "VIP MAU(명)", "date": "월"})
@@ -706,17 +735,29 @@ if vip["act_push"]:
     share = vip["unreach"] / vip["act_push"] * 100
     push_net = vip["chnet"].get("PUSH", 0)
     push_out = vip["chout"].get("PUSH", 0)
-    kind = "warn" if (vip["reach"] < 50 or push_net < 0) else ""
+    push_flat = abs(push_net) / n_days < 5          # 일평균 ±5명 미만 = 사실상 정체(노이즈)
+    kind = "warn" if (vip["reach"] < 50 or (push_net < 0 and not push_flat)) else ""
     push_year = push_net / n_days * 365
     year_pct = abs(push_year) / vip["tot_push"] * 100 if vip["tot_push"] else 0
     proj = (f"현 순감 속도(일평균 {fsigned(push_net / n_days)}명)면 <b>연 △{fnum(abs(push_year))}명</b>"
             f"(현 타겟팅가능의 {year_pct:.0f}%)이 추가로 미도달 — 다만 즉효 레버는 신규 순감보다 "
             f"<b>이미 미도달인 {fnum(vip['unreach'])}명 스톡</b>."
-            if push_net < 0 else "")
+            if push_net < 0 and not push_flat else "")
+    _sms_net, _em_net = vip["chnet"].get("SMS", 0), vip["chnet"].get("EMAIL", 0)
+    if push_flat:
+        _push_bullet = (f"PUSH 증감은 <b>사실상 정체</b>(기간 {fsigned(push_net)} · 일평균 {push_net/n_days:+.1f}명) — "
+                        f"흐름(신규−이탈)의 문제가 아니라 <b>이미 미도달인 {fnum(vip['unreach'])}명 스톡</b>의 문제. "
+                        f"SMS {fsigned(_sms_net)} · EMAIL {fsigned(_em_net)}.")
+    elif push_net < 0:
+        _push_bullet = (f"PUSH만 순감({fsigned(push_net)})이고 SMS({fsigned(_sms_net)})·EMAIL({fsigned(_em_net)})은 별개 흐름 → "
+                        "앱 채널만 약화. 푸시 도달 불가 VIP에는 <b>알림톡/카카오 대체 도달</b> 병행.")
+    else:
+        _push_bullet = (f"PUSH 증감 <b>순증 전환</b>({fsigned(push_net)}) — 회복 흐름 유지 여부 모니터링. "
+                        f"SMS {fsigned(_sms_net)} · EMAIL {fsigned(_em_net)}.")
     insight([
         f"수신동의는 <b>{vip['consent']:.1f}%</b>로 이미 충분 — 병목은 동의가 아니라 <b>앱 보유</b>(타겟팅가능 {vip['reach']:.1f}%). 동의 확보형 캠페인은 효과 한계.",
         f"<b>{fnum(vip['unreach'])}명(동의자의 {share:.0f}%)</b>이 앱 미보유/삭제로 푸시 도달 불가 → 이 풀의 <b>재설치 전환</b>이 VIP DAU 회복의 최대 레버.",
-        f"PUSH만 {'순감' if push_net < 0 else '정체'}({fsigned(push_net)})이고 SMS({fsigned(vip['chnet'].get('SMS',0))})·EMAIL({fsigned(vip['chnet'].get('EMAIL',0))})은 순증 → 앱 채널만 약화. 푸시 도달 불가 VIP에는 <b>알림톡/카카오 대체 도달</b> 병행.",
+        _push_bullet,
         proj,
     ], kind)
 
@@ -726,9 +767,14 @@ if vip["act_push"]:
     with c3: metric_card("VIP 타겟팅가능_PUSH", fnum(vip["tot_push"]), f"수신동의 {fnum(vip['act_push'])}")
     with c4: metric_card("VIP PUSH 이탈(기간 누적)", fnum(push_out),
                          f"{n_days}일 합계 · 일평균 {fnum(push_out / n_days)}명")
-    with c5: metric_card("VIP PUSH 증감(기간 누적)", fsigned(push_net),
-                         f"신규−이탈 · 일평균 {fsigned(push_net / n_days)}명 "
-                         f"{'순증' if push_net >= 0 else '순감'}")
+    with c5:
+        if push_flat:
+            metric_card("VIP PUSH 증감(기간 누적)", f"{fsigned(push_net)} <span style='font-size:14px;color:#888'>(사실상 정체)</span>",
+                        f"신규−이탈 · 일평균 {push_net / n_days:+.1f}명 — 관건은 미도달 스톡 {fnum(vip['unreach'])}")
+        else:
+            metric_card("VIP PUSH 증감(기간 누적)", fsigned(push_net),
+                        f"신규−이탈 · 일평균 {fsigned(push_net / n_days)}명 "
+                        f"{'순증' if push_net >= 0 else '순감'}")
 else:
     st.info("VIP 데이터가 없습니다. 사이드바 그룹 필터에 VIP를 포함해 주세요.")
 
@@ -1203,13 +1249,30 @@ if vip["act_push"]:
     if has_dau:
         prob = []
         if "stick1" in dau_sum:
-            prob.append(
-                f"DAU 하락의 실체는 <b>스티키니스(DAU/MAU) 하락</b>({dau_sum['stick0']:.0f}%→{dau_sum['stick1']:.0f}%) — "
-                f"VIP MAU는 {dau_sum.get('mau_growth',0):+.0f}%로 <b>유지·증가</b>. '앱 쓰는 사람이 줄어서'(모수 축소)가 아님.")
+            _mg = dau_sum.get("mau_growth", 0)
+            _stick_fell = dau_sum["stick1"] < dau_sum["stick0"]
+            if _mg >= 0 and _stick_fell:
+                prob.append(
+                    f"DAU 하락의 실체는 <b>스티키니스(DAU/MAU) 하락</b>({dau_sum['stick0']:.0f}%→{dau_sum['stick1']:.0f}%) — "
+                    f"VIP MAU는 {_mg:+.0f}%로 <b>유지·증가</b>. '앱 쓰는 사람이 줄어서'(모수 축소)가 아님.")
+            elif _mg < 0:
+                prob.append(
+                    f"<b>⚠️ VIP MAU가 감소 전환({_mg:+.0f}%)</b> — '모수는 유지, 빈도가 문제'라는 본 결론의 전제가 더 이상 성립하지 않음. "
+                    f"스티키니스 {dau_sum['stick0']:.0f}%→{dau_sum['stick1']:.0f}%. <b>모수 축소 재진단 선행 필요</b>.")
+            else:
+                prob.append(
+                    f"스티키니스가 {dau_sum['stick0']:.0f}%→{dau_sum['stick1']:.0f}%로 <b>회복</b>(MAU {_mg:+.0f}%) — "
+                    "하락 전제의 본 결론은 재검토 대상. 회복 요인(실행 레버 vs 시장) 분리 검증 필요.")
         if "push_chg" in dau_sum:
-            prob.append(
-                f"<b>앱푸시 DAU {dau_sum['push_chg']:+.0f}%</b>로 최대 하락(VIP DAU의 ~{dau_sum.get('push_share',0):.0f}% 견인). "
-                "푸시 도달(타겟팅가능)은 flat인데 DAU가 빠짐 → <b>1건당 반응률(재방문 전환) 하락</b>.")
+            _pc = dau_sum["push_chg"]
+            if _pc < 0:
+                prob.append(
+                    f"<b>앱푸시 DAU {_pc:+.0f}%</b>로 최대 하락(VIP DAU의 ~{dau_sum.get('push_share',0):.0f}% 견인). "
+                    "푸시 도달(타겟팅가능)은 flat인데 DAU가 빠짐 → <b>1건당 반응률(재방문 전환) 하락</b>.")
+            else:
+                prob.append(
+                    f"앱푸시 DAU <b>{_pc:+.0f}% 회복</b>(VIP DAU의 ~{dau_sum.get('push_share',0):.0f}%) — "
+                    "반응률 회복이 실행 레버(정밀도·도달) 기여인지 확인 필요. 지속 시 커버 시나리오 상향 여지.")
         prob += [
             "콘텐츠 레버 소진 — 전관행사(최대 혜택)로도 회복 안 됨. 반응률·빈도는 단기 통제 어려움.",
             "<span style='color:#888'>※ 이 레버(정밀 트리거·도달력)의 DAU 회복 효과는 <b>파일럿으로 실측 필요</b> — 'DAU 최대 원인'이 아니라 통제 가능한 최대 레버(no-regret)로 제시.</span>",
